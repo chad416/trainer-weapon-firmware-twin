@@ -1,5 +1,7 @@
 # Trainer-weapon firmware on a digital twin
 
+[![ci](https://github.com/chad416/trainer-weapon-firmware-twin/actions/workflows/ci.yml/badge.svg)](https://github.com/chad416/trainer-weapon-firmware-twin/actions/workflows/ci.yml)
+
 Zephyr RTOS firmware (C) for an instrumented training weapon. It runs on an emulated STM32H753 board (Antmicro's STM32H7 Renode Reference Platform) inside the Renode simulator, so no physical hardware is needed. A Python lane console on the host talks to the emulated weapons over CAN.
 
 **What the weapon does:**
@@ -29,7 +31,7 @@ All four weeks of the plan are done.
 
 **Open:**
 - Some requirements are only partly covered: F01 per-unit calibration, F14 fault injection beyond the IMU, R02 bus-off, and T02 measured separately. [docs/traceability.md](docs/traceability.md) has the details.
-- **CI:** the GitHub Actions workflow is written but hasn't run, because the repository isn't on GitHub yet.
+- **CI:** every push builds the firmware and runs the protocol-vector check, the unit tests and the Renode integration tests (about 5 minutes on GitHub's Ubuntu runner). The full 10,000-shot stress run is too long for CI and is run locally.
 
 ## What it does, and how it's tested
 
