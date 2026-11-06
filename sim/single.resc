@@ -1,0 +1,22 @@
+:name: Trainer weapon (single node)
+:description: trainer_fw on the STM32H7 Renode Reference Platform with the trainer I/O models.
+
+# Required: $elf (path to zephyr.elf). The scripts and the Robot tests set it.
+
+$name?="trainer"
+emulation CreateCANHub "canHub"
+include $ORIGIN/machine.resc
+
+# Renode's system-flash model holds a fixed fake unique ID. Pin it to zeros:
+# node ID 1 when no config is stored.
+sysbus WriteDoubleWord 0x1FF1E800 0x0
+sysbus WriteDoubleWord 0x1FF1E804 0x0
+sysbus WriteDoubleWord 0x1FF1E808 0x0
+
+# Reload the firmware on every reset (watchdog, reboot command, machine Reset).
+macro reset
+"""
+    sysbus LoadELF $elf
+    cpu EnableZephyrMode "CONFIG_TICKLESS_KERNEL"
+    cpu VectorTableOffset `sysbus GetSymbolAddress "_vector_table"`
+"""

@@ -1,0 +1,20 @@
+:name: Trainer lane (two weapons on one CAN bus)
+:description: Two trainer_fw machines, node 1 and node 2, on one CAN hub.
+
+# Required: $elf. The unique IDs are pinned with literal values: sum 0 -> node 1,
+# sum 1 -> node 2. (Script variables set here do not reliably reach included
+# scripts, so no $uid variable is used.)
+
+emulation CreateCANHub "canHub"
+
+$name="weapon1"
+include $ORIGIN/machine.resc
+sysbus WriteDoubleWord 0x1FF1E800 0x0
+sysbus WriteDoubleWord 0x1FF1E804 0x0
+sysbus WriteDoubleWord 0x1FF1E808 0x0
+
+$name="weapon2"
+include $ORIGIN/machine.resc
+sysbus WriteDoubleWord 0x1FF1E800 0x1
+sysbus WriteDoubleWord 0x1FF1E804 0x0
+sysbus WriteDoubleWord 0x1FF1E808 0x0

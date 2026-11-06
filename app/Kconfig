@@ -1,0 +1,41 @@
+menu "Trainer weapon"
+
+config TRAINER_MAG_CAPACITY
+	int "Rounds in a full magazine"
+	default 30
+	range 1 100
+
+config TRAINER_AUTO_RPM
+	int "AUTO cadence (rounds per minute)"
+	default 750
+	range 600 900
+
+config TRAINER_EMITTER_PULSE_US
+	int "Shot emitter gate pulse width (us)"
+	default 2000
+	range 100 20000
+
+config TRAINER_VALVE_PULSE_MS
+	int "Recoil valve gate pulse width (ms)"
+	default 20
+	range 5 40
+
+config TRAINER_TRIGGER_SAMPLE_HZ
+	int "Trigger ADC sampling rate (Hz)"
+	default 1000
+	range 100 2000
+
+config TRAINER_EVENT_QUEUE_LEN
+	int "Control event queue length"
+	default 16
+
+config TRAINER_DEBUG_CMDS
+	bool "Debug shell commands (stall threads, corrupt config)"
+	default y
+	help
+	  Commands that deliberately break things to test the watchdog and
+	  the config fallback. Disable for field builds.
+
+endmenu
+
+source "Kconfig.zephyr"

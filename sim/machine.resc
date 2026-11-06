@@ -1,0 +1,14 @@
+:name: One trainer weapon machine
+:description: Creates machine $name on the existing CAN hub "canHub" and loads $elf.
+
+# Inputs: $name, $elf. The caller then pins the unique ID (see single.resc /
+# lane.resc), because with no stored config the firmware derives its CAN node
+# ID from it: node = 1 + (sum of the 12 UID bytes) mod 127.
+
+mach create $name
+machine LoadPlatformDescription $ORIGIN/trainer_board.repl
+connector Connect sysbus.fdcan1 canHub
+
+sysbus LoadELF $elf
+cpu EnableZephyrMode "CONFIG_TICKLESS_KERNEL"
+cpu VectorTableOffset `sysbus GetSymbolAddress "_vector_table"`

@@ -1,0 +1,80 @@
+VERSION "trainer 0.4"
+
+NS_ :
+
+BS_:
+
+BU_: LANE WEAPON
+
+BO_ 128 SYNC: 5 LANE
+ SG_ isotp_pci : 0|8@1+ (1,0) [4|4] "" WEAPON
+ SG_ lane_time_us : 8|32@1+ (1,0) [0|4294967295] "us" WEAPON
+
+BO_ 257 SHOT_EVENT_N1: 8 WEAPON
+ SG_ shot_no : 0|16@1+ (1,0) [0|65535] "" LANE
+ SG_ t_us : 16|32@1+ (1,0) [0|4294967295] "us" LANE
+ SG_ mode : 48|2@1+ (1,0) [0|3] "" LANE
+ SG_ chambered : 50|1@1+ (1,0) [0|1] "" LANE
+ SG_ rounds_left : 56|8@1+ (1,0) [0|255] "" LANE
+
+BO_ 385 SHOT_DETAIL_N1: 8 WEAPON
+ SG_ shot_no : 0|16@1+ (1,0) [0|65535] "" LANE
+ SG_ takeup_ms : 16|8@1+ (4,0) [0|1020] "ms" LANE
+ SG_ squeeze_ms : 24|8@1+ (4,0) [0|1020] "ms" LANE
+ SG_ jerk : 32|8@1+ (1,0) [0|255] "permille/ms" LANE
+ SG_ muzzle_rate : 40|8@1+ (1,0) [0|255] "deg/s" LANE
+ SG_ cant : 48|8@1- (1,0) [-128|127] "deg" LANE
+ SG_ flinch : 56|8@1- (0.1,0) [-12.8|12.7] "deg" LANE
+
+BO_ 513 STATUS_N1: 8 WEAPON
+ SG_ state : 0|8@1+ (1,0) [0|7] "" LANE
+ SG_ sel : 8|2@1+ (1,0) [0|2] "" LANE
+ SG_ mag_in : 10|1@1+ (1,0) [0|1] "" LANE
+ SG_ chambered : 11|1@1+ (1,0) [0|1] "" LANE
+ SG_ stoppage : 12|1@1+ (1,0) [0|1] "" LANE
+ SG_ rounds : 16|8@1+ (1,0) [0|255] "" LANE
+ SG_ faults : 24|16@1+ (1,0) [0|65535] "" LANE
+ SG_ tx_overflows : 40|8@1+ (1,0) [0|255] "" LANE
+ SG_ shots : 48|16@1+ (1,0) [0|65535] "" LANE
+
+BO_ 641 EVENT_N1: 8 WEAPON
+ SG_ type : 0|8@1+ (1,0) [0|255] "" LANE
+ SG_ t_us : 16|32@1+ (1,0) [0|4294967295] "us" LANE
+ SG_ value : 48|16@1+ (1,0) [0|65535] "" LANE
+
+BO_ 769 BIT_RESULT_N1: 8 WEAPON
+ SG_ fault_mask : 0|16@1+ (1,0) [0|65535] "" LANE
+ SG_ critical : 16|1@1+ (1,0) [0|1] "" LANE
+
+BO_ 897 CMD_N1: 7 LANE
+ SG_ isotp_pci : 0|8@1+ (1,0) [6|6] "" WEAPON
+ SG_ opcode : 8|8@1+ (1,0) [1|6] "" WEAPON
+ SG_ key : 16|8@1+ (1,0) [0|255] "" WEAPON
+ SG_ value : 24|32@1+ (1,0) [0|4294967295] "" WEAPON
+
+BO_ 1025 CMD_ACK_N1: 8 WEAPON
+ SG_ isotp_pci : 0|8@1+ (1,0) [7|7] "" LANE
+ SG_ opcode : 8|8@1+ (1,0) [1|6] "" LANE
+ SG_ key : 16|8@1+ (1,0) [0|255] "" LANE
+ SG_ status : 24|8@1+ (1,0) [0|5] "" LANE
+ SG_ value : 32|32@1+ (1,0) [0|4294967295] "" LANE
+
+BO_ 1153 INFO_N1: 8 WEAPON
+ SG_ ver_major : 0|8@1+ (1,0) [0|255] "" LANE
+ SG_ ver_minor : 8|8@1+ (1,0) [0|255] "" LANE
+ SG_ ver_patch : 16|8@1+ (1,0) [0|255] "" LANE
+ SG_ reset_reason : 24|8@1+ (1,0) [0|4] "" LANE
+ SG_ boot_count : 32|32@1+ (1,0) [0|4294967295] "" LANE
+
+CM_ "11-bit ID = (function << 7) | node_id. Messages are defined for node 1; node N uses the same layout at ID + (N - 1).";
+CM_ BO_ 897 "ISO-TP single frame. opcode: 1 GET, 2 SET (saves), 3 RUN_BIT, 4 INJECT_STOPPAGE, 5 REBOOT, 6 RESET_DEFAULTS.";
+CM_ BO_ 1025 "ISO-TP single frame. status: 0 OK, 1 BAD_OPCODE, 2 BAD_KEY, 3 BAD_VALUE, 4 SAVE_FAILED, 5 READ_ONLY.";
+CM_ SG_ 897 key "1 NODE_ID, 2 CAPACITY, 3 AUTO_RPM, 4 EMITTER_US, 5 VALVE_MS, 6 BREAK_PM, 7 RESET_PM, 8 BOOT_COUNT (read-only) are saved to flash. Session only: 9 STOPPAGE_MODE (0 off, 1 at round N, 2 random), 10 STOPPAGE_ROUND, 11 STOPPAGE_PROB_PM, 12 CLEAR_WINDOW_MS (0 = no limit).";
+CM_ SG_ 641 type "1 DRY_FIRE, 2 MAG_IN, 3 MAG_OUT, 4 RACK, 5 STOPPAGE_START, 6 STOPPAGE_CLEARED (value = ms), 7 SELECTOR, 8 TAP, 9 STATE, 10 CLEAR_LATE (value = ms).";
+CM_ BO_ 128 "ISO-TP single frame from the lane, every 10 ms. Nodes timestamp it on reception and fit lane time = f(local time).";
+CM_ BO_ 385 "Sent right after SHOT_EVENT. Trigger metrics of the last break (take-up and squeeze in 4 ms steps, up to 1020 ms); IMU metrics over the 300 ms (rate) and 50 ms (flinch) before the shot. Values saturate.";
+CM_ SG_ 1153 reset_reason "0 POWER_ON, 1 PIN, 2 SOFTWARE, 3 TASK_WATCHDOG, 4 HW_WATCHDOG.";
+CM_ SG_ 769 fault_mask "bit0 OUTPUTS, bit1 ADC, bit2 IMU (critical); bit3 TRIGGER_NOT_AT_REST, bit4 CFG_DEFAULTED, bit5 CAN_ERROR, bit6 FLASH, bit7 WATCHDOG (warnings).";
+
+VAL_ 513 state 0 "SAFE" 1 "ARMED" 2 "EMPTY" 3 "LOADED" 4 "READY" 5 "FIRING" 6 "STOPPAGE" 7 "FAULT" ;
+VAL_ 513 sel 0 "SAFE" 1 "SEMI" 2 "AUTO" ;

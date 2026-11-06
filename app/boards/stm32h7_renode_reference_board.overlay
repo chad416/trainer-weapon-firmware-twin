@@ -1,0 +1,64 @@
+/*
+ * Trainer weapon I/O on the STM32H7 Renode Reference Platform.
+ *
+ * Inputs use the board as it is: potentiometer (ADC1 INP2) = analog trigger,
+ * SW1..SW4 (gpio-keys, INPUT_KEY_1..4) = selector, magazine, rack, tap.
+ *
+ * The emitter and recoil-valve gates go on free pins PE2/PE3. The board's
+ * green LEDs sit on TIM3 PWM and have no LED model in Renode, so they are
+ * not used. sim/trainer_io.repl attaches simulated LEDs to PE2/PE3.
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/sensor/lsm6dso.h>
+
+/ {
+	trainer_outputs {
+		compatible = "gpio-leds";
+
+		emitter_out: emitter {
+			gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>;
+			label = "Shot emitter gate";
+		};
+
+		valve_out: valve {
+			gpios = <&gpioe 3 GPIO_ACTIVE_HIGH>;
+			label = "Recoil valve gate";
+		};
+	};
+
+	aliases {
+		trainer-emitter = &emitter_out;
+		trainer-valve = &valve_out;
+		trainer-status-red = &red_rgb_led;
+		trainer-status-green = &green_rgb_led;
+		trainer-status-blue = &blue_rgb_led;
+	};
+};
+
+&gpioe {
+	status = "okay";
+};
+
+/*
+ * The board uses the maximum acquisition time (810.5 ADC cycles), which
+ * limits trigger sampling well below 1 kHz. A short time is fine for a
+ * low-impedance potentiometer and allows the 1 kHz trigger loop.
+ */
+&adc1 {
+	channel@2 {
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+	};
+};
+
+/*
+ * IMU for aim, cant and flinch: 208 Hz on both sensors (the board default is
+ * a very low ODR). Full scale is chosen so recoil does not clip the gyro and
+ * the accelerometer survives a recoil kick: +-16 g, +-2000 dps.
+ */
+&lsm6dso {
+	accel-odr = <LSM6DSO_DT_ODR_208Hz>;
+	gyro-odr = <LSM6DSO_DT_ODR_208Hz>;
+	accel-range = <LSM6DSO_DT_FS_16G>;
+	gyro-range = <LSM6DSO_DT_FS_2000DPS>;
+};

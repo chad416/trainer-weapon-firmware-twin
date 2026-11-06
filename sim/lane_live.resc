@@ -1,0 +1,14 @@
+:name: Trainer lane, live
+:description: lane.resc plus a bridge from the emulated CAN bus to the host's SocketCAN vcan0, and UART logs in files, for the lane console demo.
+
+# Required: $elf. Host prerequisite (Linux/WSL): modprobe vcan; ip link add dev vcan0 type vcan; ip link set up vcan0
+
+include $ORIGIN/lane.resc
+
+machine CreateSocketCANBridge "socketcan" "vcan0"
+connector Connect socketcan canHub
+
+mach set "weapon1"
+sysbus.usart2 CreateFileBackend @/tmp/trainer_weapon1_uart.log true
+mach set "weapon2"
+sysbus.usart2 CreateFileBackend @/tmp/trainer_weapon2_uart.log true

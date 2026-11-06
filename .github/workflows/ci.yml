@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+# Layout: the repo is checked out to <workspace>/trainer-fw and is the west
+# manifest repository (west.yml, self.path: trainer-fw); <workspace> is the west
+# topdir that holds zephyr/, modules/ and build/.
+env:
+  TRAINER_WS: ${{ github.workspace }}
+  TRAINER_VENV: ${{ github.workspace }}/venv
+  RENODE_VERSION: "1.17.0"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: trainer-fw
+
+      - name: System packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget \
+            python3-dev python3-venv xz-utils file make gcc gcc-multilib g++-multilib \
+            libsdl2-dev libmagic1
+
+      - name: Python venv
+        run: |
+          python3 -m venv "$TRAINER_VENV"
+          "$TRAINER_VENV/bin/pip" install -q --upgrade pip
+          "$TRAINER_VENV/bin/pip" install -q west python-can cantools
+
+      - name: Cache Zephyr and SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.west
+            ${{ github.workspace }}/zephyr
+            ${{ github.workspace }}/modules
+            ~/zephyr-sdk-*
+          key: zephyr-${{ hashFiles('trainer-fw/west.yml') }}-v1
+
+      - name: West workspace and SDK
+        run: |
+          source "$TRAINER_VENV/bin/activate"
+          cd "$TRAINER_WS"
+          [ -d .west ] || west init -l trainer-fw
+          west update -n -o=--depth=1
+          west packages pip --install
+          ls -d ~/zephyr-sdk-* >/dev/null 2>&1 || west sdk install -t arm-zephyr-eabi
+
+      - name: Protocol vectors are up to date with the DBC
+        run: |
+          source "$TRAINER_VENV/bin/activate"
+          python3 trainer-fw/protocol/gen_vectors.py --check
+
+      - name: Build firmware
+        run: bash trainer-fw/scripts/build.sh
+
+      - name: Unit tests (ztest on native_sim)
+        run: bash trainer-fw/scripts/test-unit.sh
+
+      - name: Install Renode
+        run: |
+          mkdir -p "$HOME/renode"
+          wget -q -O /tmp/renode.tgz \
+            "https://github.com/renode/renode/releases/download/v${RENODE_VERSION}/renode-${RENODE_VERSION}.linux-portable.tar.gz"
+          tar -xzf /tmp/renode.tgz -C "$HOME/renode" --strip-components=1
+          echo "$HOME/renode" >> "$GITHUB_PATH"
+          "$TRAINER_VENV/bin/pip" install -q -r "$HOME/renode/tests/requirements.txt"
+
+      - name: Integration tests (Robot Framework in Renode)
+        run: bash trainer-fw/scripts/test-sim.sh
+
+      - name: Upload test reports and firmware
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            ${{ github.workspace }}/robot-out/
+            ${{ github.workspace }}/twister-out/twister.xml
+            ${{ github.workspace }}/twister-out/twister.json
+            ${{ github.workspace }}/build/app/zephyr/zephyr.elf
+            ${{ github.workspace }}/build/app/zephyr/zephyr.map
+          if-no-files-found: warn

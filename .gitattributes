@@ -1,0 +1,6 @@
+# Text files use LF everywhere: the scripts run in WSL/Linux and CI.
+* text=auto eol=lf
+
+*.png binary
+*.mp4 binary
+*.resd binary
