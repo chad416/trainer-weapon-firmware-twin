@@ -16,9 +16,13 @@ Zephyr RTOS firmware (C) for an instrumented training weapon. It runs on an emul
 - [docs/traceability.md](docs/traceability.md): every requirement mapped to its tests
 - [docs/session/summary.md](docs/session/summary.md): report from a recorded two-weapon session
 
+![lane console during a two-weapon session, animated](docs/media/lane_console.gif)
+
+*The lane console through the whole recorded demo session (real output, 36 s). The same session as a video: [docs/media/lane_console.mp4](docs/media/lane_console.mp4); GitHub's file page does not play video, so use Raw to download it.*
+
 ![lane console during a two-weapon session](docs/media/lane_console_2.png)
 
-*Lane console during the recorded demo session (real output). Weapon 2 has fired a full-auto burst at 900 rpm. Weapon 1's late stoppage clearance is flagged `CLEAR_LATE`. Video: [docs/media/lane_console.mp4](docs/media/lane_console.mp4) (36 s).*
+*Lane console during the recorded demo session (real output). Weapon 2 has fired a full-auto burst at 900 rpm. Weapon 1's late stoppage clearance is flagged `CLEAR_LATE`.*
 
 ## Status
 
