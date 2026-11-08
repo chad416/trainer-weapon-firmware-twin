@@ -10,6 +10,7 @@
 #include "canlink.h"
 #include "cfg_store.h"
 #include "control.h"
+#include "local_clock.h"
 #include "strobe_task.h"
 #include "timesync.h"
 #include "wdt.h"
@@ -36,7 +37,7 @@ static bool ts_ready;
 
 uint64_t lane_local_us(void)
 {
-	return k_ticks_to_us_floor64(k_uptime_ticks());
+	return local_clock_us();
 }
 
 uint32_t lane_time_of(uint64_t local_us)

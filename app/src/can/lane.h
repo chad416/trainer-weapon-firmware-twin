@@ -21,7 +21,7 @@ void lane_report_event(enum proto_event_type type, uint16_t value, uint32_t t_us
 void lane_report_bit(uint16_t mask, bool critical);
 void lane_send_info(void);
 
-/* Local monotonic time in microseconds (k_uptime clock). */
+/* Local monotonic time in microseconds (cycle counter, local_clock.h). */
 uint64_t lane_local_us(void);
 
 /* Lane time for a local time: synchronised once SYNC frames arrive, else local. */

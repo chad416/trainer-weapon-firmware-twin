@@ -37,6 +37,36 @@ void outputs_emitter_pulse(uint32_t us)
 	k_timer_start(&emitter_timer, K_USEC(us), K_NO_WAIT);
 }
 
+/*
+ * Camera-mode window (v0.6.1). Both edges are switched in the system timer
+ * interrupt on absolute tick edges: the on-timer turns the gate on and starts
+ * the off-timer for the tick the window ends on. An absolute timeout fires on
+ * exactly that tick edge; a relative one started from a thread gets a tick
+ * added (Zephyr rounds "at least N ticks" up from inside the current tick),
+ * which made the v0.6.0 pulses 0.56-0.61 ms long instead of 0.5 ms.
+ */
+static k_ticks_t window_off_tick;  /* written before the on-timer is started */
+static uint64_t window_on_cycles;  /* written by the on-timer, read after it expired */
+
+static void window_on(struct k_timer *t)
+{
+	ARG_UNUSED(t);
+	(void)gpio_pin_set_dt(&emitter, 1);
+	window_on_cycles = k_cycle_get_64();
+	k_timer_start(&emitter_timer, K_TIMEOUT_ABS_TICKS(window_off_tick), K_NO_WAIT);
+}
+
+K_TIMER_DEFINE(window_timer, window_on, NULL);
+
+uint64_t outputs_emitter_window(k_ticks_t on_tick, k_ticks_t off_tick)
+{
+	window_off_tick = off_tick;
+	k_timer_start(&window_timer, K_TIMEOUT_ABS_TICKS(on_tick), K_NO_WAIT);
+	(void)k_timer_status_sync(&window_timer);  /* gate on, off-timer started */
+	(void)k_timer_status_sync(&emitter_timer); /* gate off */
+	return window_on_cycles;
+}
+
 void outputs_valve(void)
 {
 	(void)gpio_pin_set_dt(&valve, 1);

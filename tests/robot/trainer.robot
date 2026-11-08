@@ -103,7 +103,7 @@ IT01 Boot Is Safe And Quiet
     Assert LED State            true     0    testerId=${blue}     pauseEmulation=true
     Assert LED State            false    0    testerId=${red}      pauseEmulation=true
     Shell                       trainer version
-    Wait For Line On Uart       trainer_fw 0.6.0
+    Wait For Line On Uart       trainer_fw 0.6.1
 
 IT01b Trigger In Safe Does Nothing
     [Documentation]    F03: a full squeeze in SAFE fires nothing, even with a round chambered.
@@ -564,9 +564,9 @@ IT17 Camera Mode Strobes In The Weapon's Slot
     [Documentation]    F17 (v0.6): with STROBE_SLOTS = 2 and STROBE_SLOT = 0 set over CAN, the
     ...                emitter flashes 0.5 ms in the middle of every other camera exposure, on the
     ...                node's own lane time: about 10 pulses in 0.2 s, each one starting 4.75 ms
-    ...                after a 20 ms lane-time boundary, within 250 us (then the 0.5 ms pulse is
-    ...                still fully inside the 1 ms exposure). Direct mode (the default, IT10 and
-    ...                IT14) is unchanged.
+    ...                after a 20 ms lane-time boundary, within 100 us (v0.6.1; the 0.5 ms pulse has
+    ...                250 us each side inside the 1 ms exposure). Direct mode (the default, IT10
+    ...                and IT14) is unchanged.
     [Tags]    sync    strobe
     Boot Trainer
     ${vt}=                      Virtual Time Us
@@ -584,8 +584,8 @@ IT17 Camera Mode Strobes In The Weapon's Slot
     Should Be True              ${s}[aim] == ${s}[pulses]
     Should Be True              ${s}[last_k] % 2 == 0    slot 0: even exposures
     ${phase}=                   Evaluate    ${s}[last_lane] % 20000
-    Should Be True              4500 <= ${phase} <= 5000    pulse start ${phase} us into the 20 ms cycle
-    Should Be True              ${s}[max_err_us] <= 250    worst pulse timing error ${s}[max_err_us] us
+    Should Be True              4650 <= ${phase} <= 4850    pulse start ${phase} us into the 20 ms cycle
+    Should Be True              ${s}[max_err_us] <= 100    worst pulse timing error ${s}[max_err_us] us
 
 IT17b Shot Pulse Goes Into The Shot Frame
     [Documentation]    F17: in camera mode the recoil valve fires at the break (T02 unchanged),
@@ -632,3 +632,35 @@ IT17c Strobe Settings Are Checked
     ${v}=                       Cmd Should Succeed    1    14
     Should Be Equal As Integers    ${v}    2
     Cmd Should Succeed          2    13    0
+
+IT17d Strobe Pulses Are 0.5 ms Wide
+    [Documentation]    F17 (v0.6.1): the LED tester pauses the emulation on each emitter gate edge, so
+    ...                the width of every pulse is measured in virtual time. Ten aim pulses in a row
+    ...                are each 500 us within 25 us (both edges come from the timer interrupt on tick
+    ...                edges; v0.6.0 gave 563-610 us), and each starts within 100 us of its planned
+    ...                lane time (half a tick of rounding plus latency), so the pulse stays inside the
+    ...                1 ms exposure.
+    [Tags]    sync    strobe
+    Boot Trainer
+    ${vt}=                      Virtual Time Us
+    Send Sync                   ${{${vt} + 5000000}}
+    Advance                     0.01
+    Cmd Should Succeed          2    14    0
+    Cmd Should Succeed          2    13    2
+    ${emitter}=                 Create LED Tester    ${EMITTER}
+    Assert LED State            true     0.025    testerId=${emitter}    pauseEmulation=true
+    Assert LED State            false    0.001    testerId=${emitter}    pauseEmulation=true
+    ${widths}=                  Create List
+    FOR    ${i}    IN RANGE    10
+        Assert LED State        true     0.025    testerId=${emitter}    pauseEmulation=true
+        ${t_on}=                Virtual Time Us
+        Assert LED State        false    0.001    testerId=${emitter}    pauseEmulation=true
+        ${t_off}=               Virtual Time Us
+        Append To List          ${widths}    ${{${t_off} - ${t_on}}}
+    END
+    ${s}=                       Strobe Stats
+    Log To Console              LOG: pulse widths ${widths} us, strobe ${s}
+    FOR    ${w}    IN    @{widths}
+        Should Be True          475 <= ${w} <= 525    pulse ${w} us wide, all: ${widths}
+    END
+    Should Be True              ${s}[max_err_us] <= 100    worst pulse start error ${s}[max_err_us] us

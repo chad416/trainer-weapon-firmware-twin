@@ -6,6 +6,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/atomic.h>
 
+#include "local_clock.h"
 #include "proto.h"
 #include "wdt.h"
 
@@ -75,7 +76,7 @@ static void sync_received(const struct device *dev, struct can_frame *frame, voi
 	ARG_UNUSED(dev);
 	ARG_UNUSED(user_data);
 
-	struct canlink_sync p = {.local_us = k_ticks_to_us_floor64(k_uptime_ticks())};
+	struct canlink_sync p = {.local_us = local_clock_us()};
 
 	if (proto_decode_sync(frame->data, can_dlc_to_bytes(frame->dlc), &p.lane_us)) {
 		atomic_inc(&rx_syncs);

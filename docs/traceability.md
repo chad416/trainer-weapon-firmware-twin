@@ -2,7 +2,7 @@
 
 Every requirement in [SPEC.md](../SPEC.md) §4 with the tests that cover it and its status.
 Unit tests are ztest suites in `tests/unit/src/` (run on `native_sim`). IT tests are Robot Framework tests in `tests/robot/trainer.robot` (run in Renode).
-Results are from the final run on 6 Nov 2026, firmware v0.5.0: 76/76 unit tests, all 29 integration tests passing in two consecutive runs (58/58), and the full IT09b stress run (10,000 shots per weapon, 17 min) on the same build.
+Results are from the final run on 6 Nov 2026, firmware v0.5.0: 76/76 unit tests, all 29 integration tests passing in two consecutive runs (58/58), and the full IT09b stress run (10,000 shots per weapon, 17 min) on the same build. Firmware v0.6.1 (8 Nov 2026): 81/81 unit tests and all 33 integration tests; the full stress run has not been repeated.
 
 **Status key:**
 - **Met:** implemented and tested.
@@ -24,12 +24,12 @@ Results are from the final run on 6 Nov 2026, firmware v0.5.0: 76/76 unit tests,
 | F09 | SHOT_EVENT for every shot | unit `proto`; IT02, IT09a, IT09b | Met | |
 | F10 | SHOT_DETAIL: trigger and IMU metrics | unit `imu` (7), `proto`; IT07, IT07b, IT07c, IT07d | Met | One classic CAN frame with saturating fields (take-up and squeeze in 4 ms steps) |
 | F11 | STATUS at 10 Hz | unit `proto`; IT01 | Met | The 100 ms period is visible in the demo `candump`; no test asserts the rate |
-| F12 | Lane time synchronisation | unit `timesync` (8); IT10b, IT10c | Met | Absolute accuracy is proven in unit tests (≤ 50 µs at ±200 ppm), because Renode delays test frames (SPEC §13.3) |
+| F12 | Lane time synchronisation | unit `timesync` (8); IT10b, IT10c | Met | Absolute accuracy is proven in unit tests (≤ 50 µs at ±200 ppm), because Renode delays test frames (SPEC §13.3). Since v0.6.1 SYNC frames are stamped with the cycle counter, not the 100 µs tick (SPEC §13.6). |
 | F13 | Configuration over CAN and shell, saved with CRC | unit `cfg` (7); IT08, IT08b, IT08c, IT14b, IT17c | Met | Strobe settings (keys 13, 14, v0.6) are session-only |
 | F14 | BIT at boot and on request; critical faults block fire | IT01 (clean BIT_RESULT), IT12 (IMU missing → FAULT, red LED, no fire, RUN_BIT) | Partial | The IMU path is fault-injected. The ADC, outputs, trigger-not-at-rest, CAN, flash and watchdog bits are implemented but not fault-injected in a test. |
 | F15 | Shot log: ring buffer of the last 1000 shots, dump over shell (CAN in v2) | unit `shotlog` (5: wrap keeps the last 1000 in order, overwrite count, signed fields); IT16 (`trainer log n` matches the SHOT_EVENT lane times; `trainer log clear`) | Met | RAM only (16 KB, 16-byte records), lost on reset as specified. Segmented CAN download stays v2. |
 | F16 | Status LED patterns | IT01 (blue), IT12 (red), IT15 (blink, green) | Met | |
-| F17 | Camera mode (v0.6): emitter strobed in the lane camera's exposures on lane time; shot pulse in the first exposure ≥ 2 ms after the break | unit `strobe` (5: slots, shot frame rule, shot replacing the aim pulse, late shot, inverse of the SYNC fit); IT17, IT17b, IT17c | Met | Pulses 68–168 µs after plan in Renode (100 µs tick), inside the ±250 µs the exposure allows. The tracker side is tested in S3 (aim-point-tracker). |
+| F17 | Camera mode (v0.6): emitter strobed in the lane camera's exposures on lane time; shot pulse in the first exposure ≥ 2 ms after the break | unit `strobe` (5: slots, shot frame rule, shot replacing the aim pulse, late shot, inverse of the SYNC fit); IT17, IT17b, IT17c, IT17d | Met | v0.6.1: pulses 500 µs wide (IT17d, LED tester on each edge; v0.6.0 gave 563–610 µs), starting within ±100 µs of plan in IT17/IT17d (tick-edge rounding ±50 µs plus latency). In S3's two-machine co-simulation some stretches start up to 200 µs late, still inside the ±250 µs the exposure allows (SPEC §13.6). The tracker side is tested in S3 (aim-point-tracker, IT10). |
 
 ## Robustness
 

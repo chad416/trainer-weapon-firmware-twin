@@ -18,7 +18,7 @@ LOG_MODULE_REGISTER(strobe, LOG_LEVEL_INF);
 #define STROBE_MAX_WAIT_US    100000 /* re-plan at least this often (watchdog, new SYNC) */
 #define STROBE_WDT_TIMEOUT_MS 1000U
 #define STROBE_LEAD_US        300 /* plan pulses at least this far ahead */
-#define STROBE_EARLY_US       50  /* timeouts round up to the 100 us tick: aim half a tick early */
+#define STROBE_ARM_TICKS      2   /* wake this many ticks before the on edge to arm the window */
 
 K_THREAD_STACK_DEFINE(strobe_stack, STROBE_STACK_SIZE);
 K_SEM_DEFINE(strobe_wake, 0, 1);
@@ -113,11 +113,21 @@ void strobe_get_stats(struct strobe_stats *out)
 	out->synced = lane_synced();
 }
 
-static void fire(const struct strobe_pulse *p, int64_t planned_shot)
+/*
+ * The emitter window for a pulse starting at system tick on: 0.5 ms, both
+ * edges on tick edges (outputs_emitter_window). If the thread woke too late
+ * for that tick, the window moves to the next tick edge (counted in max_err).
+ */
+static void fire(const struct strobe_pulse *p, int64_t planned_shot, k_ticks_t on)
 {
-	outputs_emitter_pulse(STROBE_PULSE_US);
+	k_ticks_t now_tick = k_uptime_ticks();
 
-	uint64_t local = lane_local_us();
+	if (on <= now_tick) {
+		on = now_tick + 1;
+	}
+
+	uint64_t on_cycles = outputs_emitter_window(on, on + k_us_to_ticks_near64(STROBE_PULSE_US));
+	uint64_t local = k_cyc_to_us_floor64(on_cycles);
 	int64_t lane = lane_time64_of(local);
 	int64_t err = lane - p->start_us;
 	k_spinlock_key_t k = k_spin_lock(&lock);
@@ -168,7 +178,7 @@ static void strobe_main(void *p1, void *p2, void *p3)
 				/* Camera mode without lane time: the shot cannot be placed. Flash now. */
 				struct strobe_pulse p = {.k = sk, .start_us = 0, .kind = STROBE_SHOT, .late = true};
 
-				fire(&p, sk);
+				fire(&p, sk, k_uptime_ticks() + 1);
 			}
 			(void)k_sem_take(&strobe_wake, STROBE_IDLE);
 			continue;
@@ -181,16 +191,20 @@ static void strobe_main(void *p1, void *p2, void *p3)
 			(void)k_sem_take(&strobe_wake, STROBE_IDLE);
 			continue;
 		}
-		int64_t wait = (int64_t)(lane_local_of(p.start_us) - now) - STROBE_EARLY_US;
+		uint64_t start_local = lane_local_of(p.start_us);
 
-		if (wait > STROBE_MAX_WAIT_US) {
+		if ((int64_t)(start_local - now) > STROBE_MAX_WAIT_US) {
 			(void)k_sem_take(&strobe_wake, K_USEC(STROBE_MAX_WAIT_US));
 			continue; /* far ahead: re-plan later */
 		}
-		if ((wait > 0) && (k_sem_take(&strobe_wake, K_USEC(wait)) == 0)) {
+		/* The tick edge nearest the planned start: within half a tick (50 us). */
+		k_ticks_t on = (k_ticks_t)k_us_to_ticks_near64(start_local);
+
+		if ((k_uptime_ticks() < (on - STROBE_ARM_TICKS)) &&
+		    (k_sem_take(&strobe_wake, K_TIMEOUT_ABS_TICKS(on - STROBE_ARM_TICKS)) == 0)) {
 			continue; /* new shot or new settings: re-plan */
 		}
-		fire(&p, sk);
+		fire(&p, sk, on);
 	}
 }
 
