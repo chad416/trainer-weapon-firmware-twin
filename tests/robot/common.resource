@@ -3,8 +3,10 @@ Documentation       Shared setup for trainer_fw integration tests in Renode.
 Resource            ${RENODEKEYWORDS}
 
 *** Variables ***
-# Override from the command line: --variable ELF:/path/to/zephyr.elf
-${ELF}              /root/trainer-ws/build/app/zephyr/zephyr.elf
+# The firmware: --variable ELF:/path/to/zephyr.elf (scripts/test-sim.sh), or the
+# TRAINER_ELF environment variable; the default is the CI layout, where the
+# repository is checked out next to build/ in the west workspace.
+${ELF}              %{TRAINER_ELF=${CURDIR}/../../../build/app/zephyr/zephyr.elf}
 ${SIM_DIR}          ${CURDIR}/../../sim
 ${UART}             sysbus.usart2
 ${LED_RED}          sysbus.gpioPortD.redRgbLed

@@ -1,14 +1,12 @@
 #include "bit.h"
 
-#include <zephyr/device.h>
-#include <zephyr/devicetree.h>
-#include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/atomic.h>
 
 #include "canlink.h"
 #include "cfg_store.h"
 #include "control.h"
+#include "imu_task.h"
 #include "lane.h"
 #include "trigger_task.h"
 #include "wdt.h"
@@ -16,8 +14,6 @@
 LOG_MODULE_REGISTER(bit, LOG_LEVEL_INF);
 
 #define REST_MAX_PM 100U /* below the take-up point counts as "at rest" */
-
-static const struct device *const imu = DEVICE_DT_GET_OR_NULL(DT_ALIAS(accel0));
 
 static int outputs_rc;
 static int adc_rc;
@@ -33,15 +29,6 @@ void bit_note_adc(int init_rc)
 	adc_rc = init_rc;
 }
 
-static bool imu_ok(void)
-{
-	/* The driver reads WHO_AM_I at init; not ready means the part did not answer. */
-	if ((imu == NULL) || !device_is_ready(imu)) {
-		return false;
-	}
-	return sensor_sample_fetch(imu) == 0;
-}
-
 uint16_t bit_run(void)
 {
 	uint16_t mask = 0U;
@@ -54,7 +41,7 @@ uint16_t bit_run(void)
 	if (adc_rc != 0) {
 		mask |= BIT_F_ADC;
 	}
-	if (!imu_ok()) {
+	if (!imu_healthy()) {
 		mask |= BIT_F_IMU;
 	}
 
@@ -72,7 +59,7 @@ uint16_t bit_run(void)
 	if (cfg_store_flash_error()) {
 		mask |= BIT_F_FLASH;
 	}
-	if (!wdt_available()) {
+	if (!wdt_all_watched()) {
 		mask |= BIT_F_WATCHDOG;
 	}
 

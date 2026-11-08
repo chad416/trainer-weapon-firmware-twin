@@ -10,4 +10,4 @@ mkdir -p "$OUT"
 # renode-test mishandles a current directory containing spaces, and writes
 # robot_output.xml, log.html and report.html to the current directory.
 cd "$OUT"
-renode-test -r "$OUT" --variable "ELF:$WS/build/app/zephyr/zephyr.elf" "$@" "$REPO/tests/robot/trainer.robot"
+renode-test -r "$OUT" --variable "ELF:$BUILD/zephyr/zephyr.elf" "$@" "$REPO/tests/robot/trainer.robot"

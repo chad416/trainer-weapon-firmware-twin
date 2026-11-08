@@ -11,6 +11,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Default thresholds (permille of travel); cfg.c uses the same values. */
+#define TRIG_DEFAULT_TAKEUP_PM 100U
+#define TRIG_DEFAULT_WALL_PM   400U
+#define TRIG_DEFAULT_BREAK_PM  700U
+#define TRIG_DEFAULT_RESET_PM  500U
+
 /* Number of samples kept for the jerk metric (50 ms at 1 kHz). */
 #define TRIG_JERK_WINDOW 50U
 

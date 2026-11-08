@@ -1,0 +1,9 @@
+trainer-weapon-firmware-twin
+Copyright (c) 2026 Chander Vinayak Sharma. Licensed under the MIT License (LICENSE).
+
+Third-party material:
+
+sim/trainer_board.repl contains the Renode description of the STM32H7 Renode
+Reference Platform from the Zephyr project tree (Antmicro), licensed under the
+Apache License, Version 2.0. It keeps that license; the changes made here are
+marked in the file. https://www.apache.org/licenses/LICENSE-2.0

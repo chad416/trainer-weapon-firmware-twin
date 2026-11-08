@@ -64,11 +64,17 @@ ZTEST(proto, test_status_matches_dbc)
 {
 	struct proto_status m = {.state = 5, .sel = 2, .mag_in = true, .chambered = true,
 				 .stoppage = false, .rounds = 28, .faults = 264, .tx_overflows = 3,
-				 .shots = 515};
+				 .tx_errors = 5, .shots = 515};
 	uint8_t out[PROTO_FRAME_LEN];
 
 	zassert_equal(proto_encode_status(&m, out), sizeof(VEC_STATUS));
 	zassert_mem_equal(out, VEC_STATUS, sizeof(VEC_STATUS));
+
+	/* tx_errors has 3 bits: it saturates at 7 and leaves the other flags alone. */
+	m.tx_errors = 200;
+	(void)proto_encode_status(&m, out);
+	zassert_equal(out[1] >> 5, 7);
+	zassert_equal(out[1] & 0x1FU, VEC_STATUS[1] & 0x1FU);
 }
 
 ZTEST(proto, test_event_matches_dbc)

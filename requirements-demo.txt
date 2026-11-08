@@ -1,0 +1,4 @@
+# Extra packages for the live lane console and the session report (tools/lane).
+-r requirements.txt
+rich==15.0.0
+matplotlib==3.11.2

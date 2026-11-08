@@ -3,6 +3,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/spinlock.h>
 
 #include "cfg_store.h"
 
@@ -16,10 +17,32 @@ static const struct gpio_dt_spec led_b = GPIO_DT_SPEC_GET(DT_ALIAS(trainer_statu
 
 /* ---- shot pulses ----------------------------------------------------------- */
 
+/*
+ * The emitter gate has two owners: the direct-mode pulse (control thread) and
+ * the camera-mode window (strobe thread). Each has its own timers and holds
+ * the gate through its own bit, and the gate is on while either bit is set.
+ * A mode change while the other owner's pulse runs can neither cut that pulse
+ * short nor stretch it.
+ */
+#define EMIT_DIRECT BIT(0)
+#define EMIT_WINDOW BIT(1)
+
+static struct k_spinlock emitter_lock;
+static uint32_t emitter_holders; /* guarded by emitter_lock */
+
+static void emitter_hold(uint32_t owner, bool on)
+{
+	k_spinlock_key_t key = k_spin_lock(&emitter_lock);
+
+	emitter_holders = on ? (emitter_holders | owner) : (emitter_holders & ~owner);
+	(void)gpio_pin_set_dt(&emitter, (emitter_holders != 0U) ? 1 : 0);
+	k_spin_unlock(&emitter_lock, key);
+}
+
 static void emitter_off(struct k_timer *t)
 {
 	ARG_UNUSED(t);
-	(void)gpio_pin_set_dt(&emitter, 0);
+	emitter_hold(EMIT_DIRECT, false);
 }
 
 static void valve_off(struct k_timer *t)
@@ -33,7 +56,7 @@ K_TIMER_DEFINE(valve_timer, valve_off, NULL);
 
 void outputs_emitter_pulse(uint32_t us)
 {
-	(void)gpio_pin_set_dt(&emitter, 1);
+	emitter_hold(EMIT_DIRECT, true);
 	k_timer_start(&emitter_timer, K_USEC(us), K_NO_WAIT);
 }
 
@@ -44,16 +67,25 @@ void outputs_emitter_pulse(uint32_t us)
  * exactly that tick edge; a relative one started from a thread gets a tick
  * added (Zephyr rounds "at least N ticks" up from inside the current tick),
  * which made the v0.6.0 pulses 0.56-0.61 ms long instead of 0.5 ms.
+ * Only the strobe thread calls this, so both window timers have one owner.
  */
 static k_ticks_t window_off_tick;  /* written before the on-timer is started */
 static uint64_t window_on_cycles;  /* written by the on-timer, read after it expired */
 
+static void window_off(struct k_timer *t)
+{
+	ARG_UNUSED(t);
+	emitter_hold(EMIT_WINDOW, false);
+}
+
+K_TIMER_DEFINE(window_off_timer, window_off, NULL);
+
 static void window_on(struct k_timer *t)
 {
 	ARG_UNUSED(t);
-	(void)gpio_pin_set_dt(&emitter, 1);
+	emitter_hold(EMIT_WINDOW, true);
 	window_on_cycles = k_cycle_get_64();
-	k_timer_start(&emitter_timer, K_TIMEOUT_ABS_TICKS(window_off_tick), K_NO_WAIT);
+	k_timer_start(&window_off_timer, K_TIMEOUT_ABS_TICKS(window_off_tick), K_NO_WAIT);
 }
 
 K_TIMER_DEFINE(window_timer, window_on, NULL);
@@ -62,8 +94,8 @@ uint64_t outputs_emitter_window(k_ticks_t on_tick, k_ticks_t off_tick)
 {
 	window_off_tick = off_tick;
 	k_timer_start(&window_timer, K_TIMEOUT_ABS_TICKS(on_tick), K_NO_WAIT);
-	(void)k_timer_status_sync(&window_timer);  /* gate on, off-timer started */
-	(void)k_timer_status_sync(&emitter_timer); /* gate off */
+	(void)k_timer_status_sync(&window_timer);     /* gate on, off-timer started */
+	(void)k_timer_status_sync(&window_off_timer); /* window over */
 	return window_on_cycles;
 }
 

@@ -2,6 +2,15 @@
 
 #include <zephyr/sys/crc.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/toolchain.h>
+
+#include "proto.h"
+#include "trigger_proc.h"
+
+/* cfg_result values go straight into CMD_ACK.status. */
+BUILD_ASSERT((int)CFG_OK == (int)PROTO_ST_OK);
+BUILD_ASSERT((int)CFG_BAD_KEY == (int)PROTO_ST_BAD_KEY);
+BUILD_ASSERT((int)CFG_BAD_VALUE == (int)PROTO_ST_BAD_VALUE);
 
 /* Build-time defaults; the unit tests build without the app Kconfig. */
 #ifndef CONFIG_TRAINER_MAG_CAPACITY
@@ -17,7 +26,7 @@
 #define CONFIG_TRAINER_VALVE_PULSE_MS 20
 #endif
 
-#define WALL_PM 400U /* matches trig_cal_default(); reset must stay above it */
+#define WALL_PM TRIG_DEFAULT_WALL_PM /* reset must stay above the take-up wall */
 
 void cfg_defaults(struct trainer_cfg *c)
 {
@@ -26,8 +35,8 @@ void cfg_defaults(struct trainer_cfg *c)
 	c->auto_rpm = CONFIG_TRAINER_AUTO_RPM;
 	c->emitter_us = CONFIG_TRAINER_EMITTER_PULSE_US;
 	c->valve_ms = CONFIG_TRAINER_VALVE_PULSE_MS;
-	c->break_pm = 700U;
-	c->reset_pm = 500U;
+	c->break_pm = TRIG_DEFAULT_BREAK_PM;
+	c->reset_pm = TRIG_DEFAULT_RESET_PM;
 }
 
 static bool in_range(uint32_t v, uint32_t lo, uint32_t hi)

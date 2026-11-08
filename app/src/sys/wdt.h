@@ -8,6 +8,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/*
+ * Threads on the task watchdog: control, trigger, imu, can_tx, lane, strobe.
+ * Not watched: main (it returns after start-up), the shell, the log thread
+ * and the system work queue (status LED only). wdt.c checks at build time
+ * that CONFIG_TASK_WDT_CHANNELS covers them.
+ */
+#define WDT_WATCHED_THREADS 6
+
 enum reset_reason {
 	RESET_REASON_POWER_ON = 0,
 	RESET_REASON_PIN = 1,
@@ -26,6 +34,14 @@ int wdt_register(const char *name, uint32_t timeout_ms);
 void wdt_feed(int channel);
 
 bool wdt_available(void);
+
+/*
+ * Every thread that registered got a channel. False after a failed
+ * registration (that thread runs unwatched) or without a watchdog. BIT
+ * reports false as BIT_F_WATCHDOG.
+ */
+bool wdt_all_watched(void);
+
 enum reset_reason wdt_reset_reason(void);
 const char *wdt_reset_reason_name(enum reset_reason r);
 

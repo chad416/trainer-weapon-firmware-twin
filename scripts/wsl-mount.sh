@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Bind-mount this repository (on the Windows drive) at a path without spaces
-# inside WSL. Zephyr's build and twister break on paths containing spaces, and
-# a symlink is not enough because twister resolves it to the real path.
-# Usage (inside WSL, as root): bash "<repo>/scripts/wsl-mount.sh" [mount point]
+# Bind-mount this repository at a path without spaces. Only needed when the
+# checkout path contains a space (for example a Windows folder seen from WSL):
+# Zephyr's build and twister break on such paths, and a symlink is not enough
+# because twister resolves it to the real path. _env.sh calls this
+# automatically in that case. mount --bind needs root: run as root, or clone
+# the repository to a path without spaces and this is never called.
+# Usage: bash "<repo>/scripts/wsl-mount.sh" [mount point]
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

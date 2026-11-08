@@ -177,6 +177,7 @@ static void send_status(void)
 		.rounds = rounds_total(&s.rounds),
 		.faults = bit_last_mask(),
 		.tx_overflows = (uint8_t)MIN(c.tx_overflows, UINT8_MAX),
+		.tx_errors = (uint8_t)MIN(c.tx_errors, PROTO_TX_ERRORS_MAX),
 		.shots = (uint16_t)s.shots,
 	};
 	uint8_t d[PROTO_FRAME_LEN];

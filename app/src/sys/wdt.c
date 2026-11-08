@@ -5,6 +5,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/task_wdt/task_wdt.h>
 
@@ -23,6 +24,10 @@ static __noinit struct reset_note note;
 static char stalled[NAME_MAX_LEN];
 static enum reset_reason reason = RESET_REASON_POWER_ON;
 static bool available;
+static atomic_t failed_registrations;
+
+BUILD_ASSERT(CONFIG_TASK_WDT_CHANNELS >= WDT_WATCHED_THREADS,
+	     "CONFIG_TASK_WDT_CHANNELS must give every watched thread a channel (wdt.h)");
 
 static void on_timeout(int channel_id, void *user_data)
 {
@@ -41,16 +46,23 @@ static void on_timeout(int channel_id, void *user_data)
 static enum reset_reason read_reset_reason(void)
 {
 	uint32_t cause = 0U;
+	int rc = hwinfo_get_reset_cause(&cause);
+
+	/*
+	 * Clear the hardware flags on every path, the task-watchdog one included:
+	 * the RCC reset flags are sticky, so a flag left set here would be
+	 * reported again after the next, unrelated reset.
+	 */
+	(void)hwinfo_clear_reset_cause();
 
 	if (note.magic == NOTE_MAGIC) {
 		(void)strncpy(stalled, note.thread, sizeof(stalled) - 1U);
 		note.magic = 0U;
 		return RESET_REASON_TASK_WATCHDOG;
 	}
-	if (hwinfo_get_reset_cause(&cause) != 0) {
+	if (rc != 0) {
 		return RESET_REASON_POWER_ON;
 	}
-	(void)hwinfo_clear_reset_cause();
 
 	if (cause & RESET_WATCHDOG) {
 		return RESET_REASON_HW_WATCHDOG;
@@ -86,12 +98,15 @@ int wdt_init(void)
 int wdt_register(const char *name, uint32_t timeout_ms)
 {
 	if (!available) {
+		atomic_inc(&failed_registrations);
 		return -1;
 	}
 
 	int ch = task_wdt_add(timeout_ms, on_timeout, (void *)name);
 
 	if (ch < 0) {
+		/* The thread runs unwatched; BIT reports it as BIT_F_WATCHDOG. */
+		atomic_inc(&failed_registrations);
 		LOG_ERR("no watchdog channel for %s (%d)", name, ch);
 		return -1;
 	}
@@ -108,6 +123,11 @@ void wdt_feed(int channel)
 bool wdt_available(void)
 {
 	return available;
+}
+
+bool wdt_all_watched(void)
+{
+	return available && (atomic_get(&failed_registrations) == 0);
 }
 
 enum reset_reason wdt_reset_reason(void)

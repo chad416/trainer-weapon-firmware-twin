@@ -19,6 +19,8 @@ LOG_MODULE_REGISTER(canlink, LOG_LEVEL_INF);
 #define TX_PRIO          4
 #define TX_WAIT          K_MSEC(100)
 #define TX_WDT_TIMEOUT_MS 1000U
+#define TX_ATTEMPTS      3          /* per frame, then it is dropped and counted */
+#define TX_RETRY_DELAY   K_MSEC(5)  /* lets automatic bus-off recovery finish */
 
 static const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 
@@ -30,6 +32,7 @@ K_THREAD_STACK_DEFINE(tx_stack, TX_STACK_SIZE);
 static struct k_thread tx_thread;
 static atomic_t tx_ok;
 static atomic_t tx_errors;
+static atomic_t tx_retries;
 static atomic_t tx_overflows;
 static atomic_t bus_off_count;
 static atomic_t rx_cmds;
@@ -98,7 +101,28 @@ static void tx_main(void *p1, void *p2, void *p3)
 		if (k_msgq_get(&tx_q, &f, TX_WAIT) != 0) {
 			continue;
 		}
-		if (can_send(can_dev, &f, TX_WAIT, NULL, NULL) == 0) {
+		/*
+		 * A failed send (no free mailbox within TX_WAIT, bus-off, controller
+		 * stopped) is retried. A frame that still fails is dropped and counted
+		 * in tx_errors, which STATUS reports. Worst case per frame:
+		 * 3 x TX_WAIT + 2 x TX_RETRY_DELAY = 310 ms, inside the 1 s
+		 * watchdog timeout; meanwhile the queue absorbs new frames, and
+		 * overflows are counted separately (tx_overflows).
+		 */
+		int rc = -EIO;
+
+		for (int attempt = 0; attempt < TX_ATTEMPTS; attempt++) {
+			if (attempt > 0) {
+				atomic_inc(&tx_retries);
+				wdt_feed(wdt);
+				k_sleep(TX_RETRY_DELAY);
+			}
+			rc = can_send(can_dev, &f, TX_WAIT, NULL, NULL);
+			if (rc == 0) {
+				break;
+			}
+		}
+		if (rc == 0) {
 			atomic_inc(&tx_ok);
 		} else {
 			atomic_inc(&tx_errors);
@@ -176,6 +200,9 @@ int canlink_send(uint16_t id, const uint8_t *data, uint8_t len)
 	if (!link_up) {
 		return -ENETDOWN;
 	}
+	if (len > CAN_MAX_DLEN) {
+		return -EINVAL;
+	}
 	(void)memcpy(f.data, data, len);
 	if (k_msgq_put(&tx_q, &f, K_NO_WAIT) != 0) {
 		atomic_inc(&tx_overflows);
@@ -198,6 +225,7 @@ void canlink_get_stats(struct canlink_stats *out)
 {
 	out->tx_ok = (uint32_t)atomic_get(&tx_ok);
 	out->tx_errors = (uint32_t)atomic_get(&tx_errors);
+	out->tx_retries = (uint32_t)atomic_get(&tx_retries);
 	out->tx_overflows = (uint32_t)atomic_get(&tx_overflows);
 	out->bus_off_count = (uint32_t)atomic_get(&bus_off_count);
 	out->rx_cmds = (uint32_t)atomic_get(&rx_cmds);

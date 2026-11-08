@@ -15,10 +15,10 @@ void trig_cal_default(struct trig_cal *cal)
 {
 	cal->rest_raw = 0;
 	cal->full_raw = 4095; /* 12-bit ADC (board devicetree: zephyr,resolution = 12) */
-	cal->takeup_pm = 100U;
-	cal->wall_pm = 400U;
-	cal->break_pm = 700U;
-	cal->reset_pm = 500U;
+	cal->takeup_pm = TRIG_DEFAULT_TAKEUP_PM;
+	cal->wall_pm = TRIG_DEFAULT_WALL_PM;
+	cal->break_pm = TRIG_DEFAULT_BREAK_PM;
+	cal->reset_pm = TRIG_DEFAULT_RESET_PM;
 }
 
 bool trig_cal_valid(const struct trig_cal *cal)

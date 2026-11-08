@@ -35,6 +35,8 @@ uint32_t cfg_live_auto_rpm(void);
 uint8_t cfg_live_capacity(void);
 /* Trigger thresholds plus a generation counter that changes on every update. */
 void cfg_live_trigger(uint16_t *break_pm, uint16_t *reset_pm, uint32_t *generation);
+/* Just the generation, to check cheaply whether the thresholds changed. */
+uint32_t cfg_live_trigger_generation(void);
 
 /* Debug: store a config blob with a broken CRC (tests R03 after a reboot). */
 int cfg_store_corrupt(void);

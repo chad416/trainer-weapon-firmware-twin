@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/spinlock.h>
+#include <zephyr/sys/atomic.h>
 
 #include "wdt.h"
 
@@ -18,6 +19,7 @@ LOG_MODULE_REGISTER(imu, LOG_LEVEL_INF);
 #define IMU_WDT_TIMEOUT_MS 500U
 #define STANDARD_GRAVITY   9.80665f
 #define RAD_TO_DEG         57.29577951f
+#define IMU_HEALTH_MS      50U /* about 10 sample periods */
 
 static const struct device *const imu = DEVICE_DT_GET_OR_NULL(DT_ALIAS(accel0));
 
@@ -27,6 +29,8 @@ K_THREAD_STACK_DEFINE(imu_stack, IMU_STACK_SIZE);
 static struct k_thread imu_thread;
 static struct k_spinlock ring_lock;
 static struct imu_ring ring;
+static atomic_t good_samples;
+static atomic_t last_good_ms;
 
 static void imu_tick(struct k_timer *t)
 {
@@ -82,7 +86,19 @@ static void imu_main(void *p1, void *p2, void *p3)
 
 		imu_ring_push(&ring, &s);
 		k_spin_unlock(&ring_lock, key);
+		atomic_set(&last_good_ms, (atomic_val_t)k_uptime_get_32());
+		atomic_inc(&good_samples);
 	}
+}
+
+bool imu_healthy(void)
+{
+	if (atomic_get(&good_samples) == 0) {
+		return false; /* not started (IMU missing) or no good read yet */
+	}
+	uint32_t age_ms = k_uptime_get_32() - (uint32_t)atomic_get(&last_good_ms);
+
+	return age_ms <= IMU_HEALTH_MS;
 }
 
 int imu_task_start(void)

@@ -18,12 +18,13 @@ struct strobe_stats {
 	uint8_t n_slots, slot;
 	bool synced;
 	uint32_t pulses, aim, shots, late;
+	uint32_t unsynced;        /* shot flashes fired at once: camera mode without lane time */
 	uint8_t last_kind;
 	int64_t last_k;           /* exposure of the last pulse */
 	int64_t last_lane_us;     /* lane time it fired */
 	uint64_t last_local_us;
 	int64_t last_err_us;      /* fired - planned, lane time */
-	int64_t max_err_us;
+	int64_t max_err_us;       /* worst |last_err_us| since camera mode was last set */
 	int64_t last_shot_k;      /* shot frame of the last break */
 	int64_t last_shot_fired_k;
 	int64_t last_shot_lane_us;

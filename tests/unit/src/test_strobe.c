@@ -94,7 +94,7 @@ ZTEST(strobe, test_shot_pulse)
 	zassert_true(p.late);
 }
 
-/* The inverse of the SYNC fit, used to time the pulses (S1 v0.6). */
+/* The inverse of the SYNC fit, used to time the pulses (v0.6). */
 ZTEST(strobe, test_timesync_inverse)
 {
 	struct timesync ts;

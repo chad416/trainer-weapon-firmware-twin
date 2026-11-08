@@ -81,8 +81,11 @@ uint8_t proto_encode_status(const struct proto_status *m, uint8_t out[PROTO_FRAM
 {
 	(void)memset(out, 0, PROTO_FRAME_LEN);
 	out[0] = m->state;
+	uint8_t tx_errors = (m->tx_errors > PROTO_TX_ERRORS_MAX) ? PROTO_TX_ERRORS_MAX
+								 : m->tx_errors;
+
 	out[1] = (uint8_t)((m->sel & 0x3U) | (m->mag_in ? 0x4U : 0U) | (m->chambered ? 0x8U : 0U) |
-			   (m->stoppage ? 0x10U : 0U));
+			   (m->stoppage ? 0x10U : 0U) | (uint8_t)(tx_errors << 5));
 	out[2] = m->rounds;
 	put_u16(&out[3], m->faults);
 	out[5] = m->tx_overflows;

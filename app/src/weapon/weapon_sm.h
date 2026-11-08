@@ -52,7 +52,8 @@ enum weapon_event_type {
 
 struct weapon_event {
 	enum weapon_event_type type;
-	uint32_t t_ms;
+	uint32_t t_ms;       /* uptime in ms (stoppage clearance times) */
+	uint64_t t_local_us; /* local clock in us when the input was sampled (shot timestamps) */
 };
 
 /* Action mask returned by weapon_handle(). */

@@ -1,0 +1,7 @@
+# Python packages for building, testing and linting (pip install -r requirements.txt).
+# Versions used by CI and for the recorded results. Robot Framework comes with
+# Renode: pip install -r <renode>/tests/requirements.txt
+west==1.5.0
+cantools==45.1.2
+python-can==4.6.1
+ruff==0.14.2

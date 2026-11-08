@@ -10,6 +10,7 @@
 
 #include "cfg_store.h"
 #include "control.h"
+#include "local_clock.h"
 #include "wdt.h"
 
 LOG_MODULE_REGISTER(trigger, LOG_LEVEL_INF);
@@ -106,23 +107,19 @@ static void trigger_main(void *p1, void *p2, void *p3)
 			k_sleep(K_FOREVER);
 		}
 
-		uint16_t b;
-		uint16_t r;
-		uint32_t gen;
-
-		cfg_live_trigger(&b, &r, &gen);
-		if (gen != cal_generation) {
+		if (cfg_live_trigger_generation() != cal_generation) {
 			load_calibration(&cal_generation);
 		}
 
-		uint32_t now_us = (uint32_t)k_ticks_to_us_floor64(k_uptime_ticks());
+		/* Sample time: a break is reported with it (control_post_at). */
+		uint64_t t_sample = local_clock_us();
 		uint32_t c0 = k_cycle_get_32();
 		int rc = adc_read_dt(&trigger_adc, &seq);
 		uint32_t read_us = k_cyc_to_us_floor32(k_cycle_get_32() - c0);
 		enum trig_event ev = TRIG_EV_NONE;
 
 		if (rc == 0) {
-			ev = trig_update(&proc, (int32_t)buf, now_us);
+			ev = trig_update(&proc, (int32_t)buf, (uint32_t)t_sample);
 		}
 
 		k_spinlock_key_t key = k_spin_lock(&snap_lock);
@@ -142,9 +139,9 @@ static void trigger_main(void *p1, void *p2, void *p3)
 		k_spin_unlock(&snap_lock, key);
 
 		if (ev == TRIG_EV_BREAK) {
-			(void)control_post(WEV_TRIGGER_BREAK);
+			(void)control_post_at(WEV_TRIGGER_BREAK, t_sample);
 		} else if (ev == TRIG_EV_RESET) {
-			(void)control_post(WEV_TRIGGER_RESET);
+			(void)control_post_at(WEV_TRIGGER_RESET, t_sample);
 		}
 	}
 }

@@ -1,4 +1,4 @@
-VERSION "trainer 0.6"
+VERSION "trainer 0.6.2"
 
 NS_ :
 
@@ -32,6 +32,7 @@ BO_ 513 STATUS_N1: 8 WEAPON
  SG_ mag_in : 10|1@1+ (1,0) [0|1] "" LANE
  SG_ chambered : 11|1@1+ (1,0) [0|1] "" LANE
  SG_ stoppage : 12|1@1+ (1,0) [0|1] "" LANE
+ SG_ tx_errors : 13|3@1+ (1,0) [0|7] "" LANE
  SG_ rounds : 16|8@1+ (1,0) [0|255] "" LANE
  SG_ faults : 24|16@1+ (1,0) [0|65535] "" LANE
  SG_ tx_overflows : 40|8@1+ (1,0) [0|255] "" LANE
@@ -75,6 +76,7 @@ CM_ BO_ 128 "ISO-TP single frame from the lane, every 10 ms. Nodes timestamp it 
 CM_ BO_ 385 "Sent right after SHOT_EVENT. Trigger metrics of the last break (take-up and squeeze in 4 ms steps, up to 1020 ms); IMU metrics over the 300 ms (rate) and 50 ms (flinch) before the shot. Values saturate.";
 CM_ SG_ 1153 reset_reason "0 POWER_ON, 1 PIN, 2 SOFTWARE, 3 TASK_WATCHDOG, 4 HW_WATCHDOG.";
 CM_ SG_ 769 fault_mask "bit0 OUTPUTS, bit1 ADC, bit2 IMU (critical); bit3 TRIGGER_NOT_AT_REST, bit4 CFG_DEFAULTED, bit5 CAN_ERROR, bit6 FLASH, bit7 WATCHDOG (warnings).";
+CM_ SG_ 513 tx_errors "Frames dropped after 3 failed send attempts, saturating at 7 (v0.6.2). tx_overflows counts frames dropped because the TX queue was full.";
 
 VAL_ 513 state 0 "SAFE" 1 "ARMED" 2 "EMPTY" 3 "LOADED" 4 "READY" 5 "FIRING" 6 "STOPPAGE" 7 "FAULT" ;
 VAL_ 513 sel 0 "SAFE" 1 "SEMI" 2 "AUTO" ;

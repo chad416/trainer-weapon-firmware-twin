@@ -2,7 +2,7 @@
 
 Every requirement in [SPEC.md](../SPEC.md) §4 with the tests that cover it and its status.
 Unit tests are ztest suites in `tests/unit/src/` (run on `native_sim`). IT tests are Robot Framework tests in `tests/robot/trainer.robot` (run in Renode).
-Results are from the final run on 6 Nov 2026, firmware v0.5.0: 76/76 unit tests, all 29 integration tests passing in two consecutive runs (58/58), and the full IT09b stress run (10,000 shots per weapon, 17 min) on the same build. Firmware v0.6.1 (8 Nov 2026): 81/81 unit tests and all 33 integration tests; the full stress run has not been repeated.
+Results for firmware v0.6.2 (8 Nov 2026): 81/81 unit tests and 34/34 integration tests, in two consecutive full-suite runs; the full IT09b stress run (10,000 shots per weapon) passed on the same build (20 min).
 
 **Status key:**
 - **Met:** implemented and tested.
@@ -21,22 +21,22 @@ Results are from the final run on 6 Nov 2026, firmware v0.5.0: 76/76 unit tests,
 | F06 | SEMI one shot per break; AUTO 600–900 rpm | unit `weapon` (`test_semi_one_shot_per_break`, `test_auto_cadence`, `test_auto_runs_dry_and_stops_cadence`); IT03, IT04 | Met | |
 | F07 | Dry fire on an empty chamber | unit `weapon` (`test_empty_and_loaded_are_dry_fire`); IT05 | Met | |
 | F08 | Instructor stoppages (now, at round N, probability p), tap-rack drill, clearance time, window | unit `malfunction` (6), `weapon` (`test_stoppage_drill`); IT06, IT06a, IT06b, IT06c | Met | Stoppage settings are session-only (keys 9–12), not saved to flash |
-| F09 | SHOT_EVENT for every shot | unit `proto`; IT02, IT09a, IT09b | Met | |
+| F09 | SHOT_EVENT for every shot, stamped with the break sample time | unit `proto`; IT02, IT09a, IT09b, IT10b | Met | Since v0.6.2 the time is the trigger sample that crossed the break (AUTO: the cadence tick), not the handling time (SPEC §13.7). IT10b checks it against the SHOT log line's `t_local` within 2 µs. |
 | F10 | SHOT_DETAIL: trigger and IMU metrics | unit `imu` (7), `proto`; IT07, IT07b, IT07c, IT07d | Met | One classic CAN frame with saturating fields (take-up and squeeze in 4 ms steps) |
-| F11 | STATUS at 10 Hz | unit `proto`; IT01 | Met | The 100 ms period is visible in the demo `candump`; no test asserts the rate |
-| F12 | Lane time synchronisation | unit `timesync` (8); IT10b, IT10c | Met | Absolute accuracy is proven in unit tests (≤ 50 µs at ±200 ppm), because Renode delays test frames (SPEC §13.3). Since v0.6.1 SYNC frames are stamped with the cycle counter, not the 100 µs tick (SPEC §13.6). |
-| F13 | Configuration over CAN and shell, saved with CRC | unit `cfg` (7); IT08, IT08b, IT08c, IT14b, IT17c | Met | Strobe settings (keys 13, 14, v0.6) are session-only |
+| F11 | STATUS at 10 Hz with the listed fields | unit `proto`; IT01, IT09b | Partial | Fields and encoding are tested byte for byte (unit `proto`, incl. `tx_errors` saturation). The 100 ms period is visible in the demo `candump`; no test asserts the rate. Revision C replaced "uptime" in the requirement with the shot count STATUS carries. |
+| F12 | Lane time synchronisation | unit `timesync` (8); IT10b, IT10c | Met | Absolute accuracy is proven in unit tests (≤ 50 µs at ±200 ppm), because Renode delays test frames (SPEC §13.3). IT10c checks the drift bound and that lane time follows the reported drift over 1 s (within 1 µs of expected in four runs, drift −100 to +89 ppm). |
+| F13 | Configuration over CAN and shell, saved with CRC | unit `cfg` (7); IT08, IT08b, IT08c, IT14b, IT17c | Met | Strobe settings (keys 13, 14) are session-only |
 | F14 | BIT at boot and on request; critical faults block fire | IT01 (clean BIT_RESULT), IT12 (IMU missing → FAULT, red LED, no fire, RUN_BIT) | Partial | The IMU path is fault-injected. The ADC, outputs, trigger-not-at-rest, CAN, flash and watchdog bits are implemented but not fault-injected in a test. |
-| F15 | Shot log: ring buffer of the last 1000 shots, dump over shell (CAN in v2) | unit `shotlog` (5: wrap keeps the last 1000 in order, overwrite count, signed fields); IT16 (`trainer log n` matches the SHOT_EVENT lane times; `trainer log clear`) | Met | RAM only (16 KB, 16-byte records), lost on reset as specified. Segmented CAN download stays v2. |
-| F16 | Status LED patterns | IT01 (blue), IT12 (red), IT15 (blink, green) | Met | |
-| F17 | Camera mode (v0.6): emitter strobed in the lane camera's exposures on lane time; shot pulse in the first exposure ≥ 2 ms after the break | unit `strobe` (5: slots, shot frame rule, shot replacing the aim pulse, late shot, inverse of the SYNC fit); IT17, IT17b, IT17c, IT17d | Met | v0.6.1: pulses 500 µs wide (IT17d, LED tester on each edge; v0.6.0 gave 563–610 µs), starting within ±100 µs of plan in IT17/IT17d (tick-edge rounding ±50 µs plus latency). In S3's two-machine co-simulation some stretches start up to 200 µs late, still inside the ±250 µs the exposure allows (SPEC §13.6). The tracker side is tested in S3 (aim-point-tracker, IT10). |
+| F15 | Shot log: ring buffer of the last 1000 shots in RAM, dump over the shell | unit `shotlog` (5: wrap keeps the last 1000 in order, overwrite count, signed fields); IT16 (`trainer log n` matches the SHOT_EVENT lane times; `trainer log clear`) | Met | 16 KB, 16-byte records, lost on reset as specified. Segmented CAN download is future work. |
+| F16 | Status LED patterns | IT01 (blue), IT12 (red), IT15 (EMPTY blink, READY green, STOPPAGE amber blink) | Met | The amber blink check was added in v0.6.2. |
+| F17 | Camera mode: emitter strobed in the lane camera's exposures on lane time; shot pulse in the first exposure ≥ 2 ms after the break | unit `strobe` (5: slots, shot frame rule, shot replacing the aim pulse, late shot, inverse of the SYNC fit); IT17, IT17b, IT17c, IT17d, IT17e | Met | Pulses 500 µs wide (IT17d, limit ±25 µs: in four v0.6.2 runs all ten pulses measured 500 µs, except one 488 µs pulse in two of the runs). Starts within ±100 µs of plan in IT17, IT17b and IT17d (measured ≤ 35 µs; tick-edge rounding ±50 µs plus latency). A shot before lane time flashes at once and is counted as unsynced (IT17e). In the aim-point tracker's two-machine co-simulation some stretches start up to 200 µs late, inside the ±250 µs the exposure allows (SPEC §13.6); the tracker side is tested there (its IT10). |
 
 ## Robustness
 
 | ID | Requirement (short) | Tests | Status | Note |
 |---|---|---|---|---|
-| R01 | Task watchdog on the threads; reset with the reason logged | IT11 (control), IT11b (trigger) | Met | The reason is logged before the reset. After the reset, Renode reports PIN, because it clears RAM and the RCC flags (SPEC §13.2). |
-| R02 | Bus-off recovery; TX overflow counted, never silent | IT09b (`tx_overflow=0` at 900 rpm on both weapons) | Partial | Bus-off can't be injected in Renode (IT13 untested). Recovery is Zephyr's automatic mode. |
+| R01 | Task watchdog on the six threads; reset with the reason logged | IT11 (control), IT11b (trigger) | Met | A stall is injected in the control and trigger threads; IMU, CAN TX, lane and strobe register the same way, and a failed registration sets BIT_F_WATCHDOG (v0.6.2). The reason is logged before the reset. After the reset, Renode reports PIN, because it clears RAM and the RCC flags (SPEC §13.2). |
+| R02 | Bus-off recovery; frames that cannot be queued or sent are counted in STATUS, never dropped silently | IT09b (`tx_err=0 tx_overflow=0` at 900 rpm on both weapons); unit `proto` (STATUS `tx_errors`) | Partial | Counting and reporting are implemented (v0.6.2: 3 send attempts, then `tx_errors`). Neither bus-off nor a failed send can be injected in Renode (IT13 not run). Recovery is Zephyr's automatic mode. |
 | R03 | Corrupt settings → defaults + fault bit | unit `cfg` (`test_corruption_is_detected`); IT08b | Met | |
 | R04 | A reset never fires a shot | unit `trigger` (`test_held_at_power_up_does_not_fire`), `weapon` (`test_held_trigger_when_leaving_safe_does_not_fire`); IT01 (no output pulses at boot) | Met | |
 
@@ -48,9 +48,9 @@ Results are from the final run on 6 Nov 2026, firmware v0.5.0: 76/76 unit tests,
 | T02 | Outputs ≤ 200 µs after detection | IT10 | Partial | Measured together with T01: emitter on ≤ 1.5 ms after the pot crosses break. Not measured separately. |
 | T03 | SHOT_EVENT ≤ 2 ms after break | IT10 | Met | |
 | T04 | AUTO cadence within ±2 % | IT04 | Met | 80 ± 1 ms at 750 rpm (±1.25 %) |
-| T05 | Two weapons at 900 rpm, 10 000 shots each, no lost frames | IT09b with `STRESS_MAGS:100` | Met | Node 2's stream is verified frame by frame (one CAN tester per hub in Renode). Node 1 is verified by its shot counter and TX overflow counter. |
+| T05 | Two weapons at 900 rpm, 10 000 shots each, no lost frames | IT09b with `STRESS_MAGS:100` | Met | Passed on v0.6.2 (8 Nov 2026, 20 min): node 2's 10,000 SHOT_EVENTs in order; both nodes report 10,000 shots, `tx_err=0 tx_overflow=0 tx_retry=0`. Node 2's stream is verified frame by frame (one CAN tester per hub in Renode); node 1 by its shot counter and TX counters. CI runs 3 magazines (300 shots each). |
 
 ## Not tested in simulation
 
-- **IT13 bus-off:** Renode can't inject CAN bus errors.
-- **Silicon timing:** Renode isn't cycle-accurate. The same binary has to run on hardware for real latencies.
+- **IT13 bus-off:** Renode can't inject CAN bus errors or failed sends.
+- **Silicon timing:** Renode isn't cycle-accurate. The same firmware has to run on hardware for real latencies.

@@ -22,6 +22,13 @@ void control_start(void);
 /* Queue an event, timestamped now. Safe to call from ISRs. Returns 0 or -ENOMSG if full. */
 int control_post(enum weapon_event_type type);
 
+/*
+ * Queue an event that happened at local time t_local_us (local_clock.h), for
+ * inputs sampled before they are posted: a trigger break carries the time of
+ * the ADC sample that crossed the break point.
+ */
+int control_post_at(enum weapon_event_type type, uint64_t t_local_us);
+
 /* Consistent copy of the weapon status, for the shell and STATUS frames. */
 void control_get_snapshot(struct control_snapshot *out);
 

@@ -76,6 +76,7 @@ uint8_t strobe_session_set(uint8_t key, uint32_t value)
 	if (st == PROTO_ST_OK) {
 		cfg = c;
 		shot_k = STROBE_NO_SHOT;
+		max_err_us = 0; /* the worst error is kept per camera-mode setting */
 	}
 	k_spin_unlock(&lock, k);
 	if (st == PROTO_ST_OK) {
@@ -117,8 +118,10 @@ void strobe_get_stats(struct strobe_stats *out)
  * The emitter window for a pulse starting at system tick on: 0.5 ms, both
  * edges on tick edges (outputs_emitter_window). If the thread woke too late
  * for that tick, the window moves to the next tick edge (counted in max_err).
+ * A pulse without lane time (planned = false) has no planned start, so it is
+ * counted in unsynced and kept out of the timing error statistics.
  */
-static void fire(const struct strobe_pulse *p, int64_t planned_shot, k_ticks_t on)
+static void fire(const struct strobe_pulse *p, int64_t planned_shot, k_ticks_t on, bool planned)
 {
 	k_ticks_t now_tick = k_uptime_ticks();
 
@@ -137,9 +140,13 @@ static void fire(const struct strobe_pulse *p, int64_t planned_shot, k_ticks_t o
 	stats.last_k = p->k;
 	stats.last_lane_us = lane;
 	stats.last_local_us = local;
-	stats.last_err_us = err;
-	if (((err < 0) ? -err : err) > max_err_us) {
-		max_err_us = (err < 0) ? -err : err;
+	if (planned) {
+		stats.last_err_us = err;
+		if (((err < 0) ? -err : err) > max_err_us) {
+			max_err_us = (err < 0) ? -err : err;
+		}
+	} else {
+		stats.unsynced++;
 	}
 	if (p->kind == STROBE_SHOT) {
 		stats.shots++;
@@ -176,9 +183,9 @@ static void strobe_main(void *p1, void *p2, void *p3)
 		if ((c.n_slots == 0U) || !lane_synced()) {
 			if ((c.n_slots != 0U) && (sk != STROBE_NO_SHOT)) {
 				/* Camera mode without lane time: the shot cannot be placed. Flash now. */
-				struct strobe_pulse p = {.k = sk, .start_us = 0, .kind = STROBE_SHOT, .late = true};
+				struct strobe_pulse p = {.k = sk, .start_us = 0, .kind = STROBE_SHOT, .late = false};
 
-				fire(&p, sk, k_uptime_ticks() + 1);
+				fire(&p, sk, k_uptime_ticks() + 1, false);
 			}
 			(void)k_sem_take(&strobe_wake, STROBE_IDLE);
 			continue;
@@ -204,7 +211,7 @@ static void strobe_main(void *p1, void *p2, void *p3)
 		    (k_sem_take(&strobe_wake, K_TIMEOUT_ABS_TICKS(on - STROBE_ARM_TICKS)) == 0)) {
 			continue; /* new shot or new settings: re-plan */
 		}
-		fire(&p, sk, on);
+		fire(&p, sk, on, true);
 	}
 }
 

@@ -94,6 +94,7 @@ IT01 Boot Is Safe And Quiet
     ${info}=                    Wait For Frame    ${FN_INFO}
     Should Be Equal As Integers    ${info}[0]    0    version major
     Should Be Equal As Integers    ${info}[1]    6    version minor
+    Should Be Equal As Integers    ${info}[2]    2    version patch
     ${boots}=                   U32    ${info}    4
     Should Be Equal As Integers    ${boots}    1
     ${status}=                  Wait For Frame    ${FN_STATUS}
@@ -103,7 +104,7 @@ IT01 Boot Is Safe And Quiet
     Assert LED State            true     0    testerId=${blue}     pauseEmulation=true
     Assert LED State            false    0    testerId=${red}      pauseEmulation=true
     Shell                       trainer version
-    Wait For Line On Uart       trainer_fw 0.6.1
+    Wait For Line On Uart       trainer_fw 0.6.2
 
 IT01b Trigger In Safe Does Nothing
     [Documentation]    F03: a full squeeze in SAFE fires nothing, even with a round chambered.
@@ -337,7 +338,10 @@ IT10b Shot Timestamps Use Lane Time
 
 IT10c Jittery SYNC Keeps Drift Bounded
     [Documentation]    F12 robustness: 40 SYNC frames with Renode's large delivery jitter still
-    ...                give a locked fit whose drift stays inside the +-500 ppm bound.
+    ...                give a locked fit with an offset of about +5 s and a drift inside the
+    ...                +-500 ppm bound. The node's lane time then follows that drift: over 1 s
+    ...                without SYNC its offset moves by drift x 1 s (within 20 us), so a slope
+    ...                that was only clamped in the report, not in the conversion, fails here.
     [Tags]    sync
     Boot Trainer
     FOR    ${i}    IN RANGE    40
@@ -345,11 +349,21 @@ IT10c Jittery SYNC Keeps Drift Bounded
         Send Sync               ${{${vt} + 5000000}}
         Advance                 0.01
     END
+    ${vt1}=                     Virtual Time Us
     Shell                       trainer sync
     ${l}=                       Wait For Line On Uart    sync synced=yes
     ${ppb}=                     Evaluate    int(re.search(r"drift_ppb=(-?\\d+)", $l["Line"]).group(1))    modules=re
-    Log To Console              LOG: drift under jitter ${ppb} ppb
+    ${off1}=                    Evaluate    int(re.search(r"offset_us=(-?\\d+)", $l["Line"]).group(1))    modules=re
+    Advance                     1.0
+    ${vt2}=                     Virtual Time Us
+    Shell                       trainer sync
+    ${l}=                       Wait For Line On Uart    sync synced=yes
+    ${off2}=                    Evaluate    int(re.search(r"offset_us=(-?\\d+)", $l["Line"]).group(1))    modules=re
+    ${expected}=                Evaluate    ${ppb} * (${vt2} - ${vt1}) / 1e9
+    Log To Console              LOG: drift under jitter ${ppb} ppb, offset ${off1} us, moved ${{${off2} - ${off1}}} us in ${{${vt2} - ${vt1}}} us (expected ${expected})
     Should Be True              abs(${ppb}) <= 500000    drift ${ppb} ppb
+    Should Be True              4500000 <= ${off1} <= 5100000    offset ${off1} us
+    Should Be True              abs((${off2} - ${off1}) - ${expected}) <= 20    offset moved ${{${off2} - ${off1}}} us, expected ${expected} us
 
 IT08 Config Persists Across Reboot
     [Documentation]    F13: SET over CAN is saved to flash and survives a reboot command.
@@ -420,9 +434,10 @@ IT09a Two Weapons On One Bus
 IT09b Two Weapons Full Auto Without Frame Loss
     [Documentation]    T05 (scaled): both weapons fire AUTO at 900 rpm, ${STRESS_MAGS} magazines of
     ...                100 rounds each. Node 2's SHOT_EVENT stream arrives complete and in order
-    ...                while node 1 shares the bus, and both nodes report every shot and no TX
-    ...                overflow. (Renode allows one CAN tester per hub and a wait consumes all
-    ...                frames before its match, so only one node's stream can be read in full.)
+    ...                while node 1 shares the bus, and both nodes report every shot, no TX
+    ...                overflow and no TX error (v0.6.2). Renode allows one CAN tester per hub, and
+    ...                a wait consumes all frames before its match, so only one node's stream can
+    ...                be read in full.
     ...                Run with --variable STRESS_MAGS:100 for SPEC T05's 10 000 shots each.
     [Tags]    stress
     Execute Command             $elf=@${ELF}
@@ -459,7 +474,7 @@ IT09b Two Weapons Full Auto Without Frame Loss
         Write Line To Uart      trainer status    testerId=${u}
         Wait For Line On Uart   content=shots=${total}    testerId=${u}
         Write Line To Uart      trainer can    testerId=${u}
-        Wait For Line On Uart   content=tx_overflow=0    testerId=${u}
+        Wait For Line On Uart   content=tx_err=0 tx_overflow=0    testerId=${u}
     END
 
 IT11 Watchdog Resets A Stalled Thread
@@ -549,9 +564,11 @@ IT16 Shot Log On The Device
     Wait For Line On Uart       content=log count=0 total=0
 
 IT15 Status LED Patterns
-    [Documentation]    F16: SAFE blue, EMPTY slow green blink, READY steady green.
+    [Documentation]    F16: SAFE blue, EMPTY slow green blink, READY steady green, STOPPAGE amber
+    ...                (red and green) blinking at 150 ms.
     Boot Trainer
     ${green}=                   Create LED Tester    ${LED_GREEN}
+    ${red}=                     Create LED Tester    ${LED_RED}
     Press                       sw1
     Wait For Line On Uart       STATE EMPTY
     Assert LED Is Blinking      2.0    0.5    0.5    tolerance=0.1    testerId=${green}    pauseEmulation=true
@@ -559,6 +576,10 @@ IT15 Status LED Patterns
     Press                       sw3
     Wait For Line On Uart       STATE READY
     Assert And Hold LED State   true    0.1    0.5    testerId=${green}    pauseEmulation=true
+    Shell                       trainer inject
+    Wait For Line On Uart       STATE STOPPAGE
+    Assert LED Is Blinking      1.0    0.15    0.15    tolerance=0.03    testerId=${red}    pauseEmulation=true
+    Assert LED Is Blinking      1.0    0.15    0.15    tolerance=0.03    testerId=${green}    pauseEmulation=true
 
 IT17 Camera Mode Strobes In The Weapon's Slot
     [Documentation]    F17 (v0.6): with STROBE_SLOTS = 2 and STROBE_SLOT = 0 set over CAN, the
@@ -590,7 +611,8 @@ IT17 Camera Mode Strobes In The Weapon's Slot
 IT17b Shot Pulse Goes Into The Shot Frame
     [Documentation]    F17: in camera mode the recoil valve fires at the break (T02 unchanged),
     ...                and the emitter's shot pulse goes into the first exposure whose pulse starts
-    ...                at least 2 ms after the break time the SHOT_EVENT carries (the tracker's rule).
+    ...                at least 2 ms after the break time the SHOT_EVENT carries (the tracker's rule),
+    ...                starting within 100 us of plan like the aim pulses (IT17, IT17d).
     [Tags]    sync    strobe
     Boot Trainer
     ${vt}=                      Virtual Time Us
@@ -613,7 +635,7 @@ IT17b Shot Pulse Goes Into The Shot Frame
     Should Be Equal As Integers    ${s}[shots]    1
     Should Be Equal As Integers    ${s}[late]    0
     ${start}=                   Evaluate    ${k} * 10000 + 4750
-    Should Be True              abs(${s}[shot_lane] - ${start}) <= 250    shot pulse at ${s}[shot_lane], planned ${start}
+    Should Be True              abs(${s}[shot_lane] - ${start}) <= 100    shot pulse at ${s}[shot_lane], planned ${start}
     Should Be True              ${s}[shot_lane] - ${t} >= 2000    at least 2 ms after the break
 
 IT17c Strobe Settings Are Checked
@@ -664,3 +686,35 @@ IT17d Strobe Pulses Are 0.5 ms Wide
         Should Be True          475 <= ${w} <= 525    pulse ${w} us wide, all: ${widths}
     END
     Should Be True              ${s}[max_err_us] <= 100    worst pulse start error ${s}[max_err_us] us
+
+IT17e Shot Flash Without Lane Time Is Not A Timing Error
+    [Documentation]    F17 (v0.6.2): in camera mode before any SYNC, a shot pulse has no exposure to
+    ...                go into, so the emitter flashes at once. That flash is counted as unsynced
+    ...                and kept out of the timing statistics: max_err_us stays 0, and after lane
+    ...                time locks it holds the real worst error of the strobed pulses (v0.6.1
+    ...                reported the whole timestamp as the error until the next reboot).
+    [Tags]    sync    strobe
+    Boot Trainer
+    Cmd Should Succeed          2    14    0
+    Cmd Should Succeed          2    13    2
+    Load Semi
+    ${emitter}=                 Create LED Tester    ${EMITTER}
+    Set Trigger                 100
+    Assert LED State            true     0.005    testerId=${emitter}    pauseEmulation=true
+    Wait For Line On Uart       SHOT n=1
+    Advance                     0.01
+    ${s}=                       Strobe Stats
+    Log To Console              LOG: unsynced shot, strobe ${s}
+    Should Be Equal As Integers    ${s}[synced]    0
+    Should Be Equal As Integers    ${s}[shots]    1
+    Should Be Equal As Integers    ${s}[unsynced]    1
+    Should Be Equal As Integers    ${s}[max_err_us]    0
+    ${vt}=                      Virtual Time Us
+    Send Sync                   ${{${vt} + 5000000}}
+    # The tester delivers the SYNC after a host-dependent delay (SPEC 13.3).
+    Advance                     0.3
+    ${s}=                       Strobe Stats
+    Log To Console              LOG: after SYNC, strobe ${s}
+    Should Be True              ${s}[aim] >= 5    ${s}
+    Should Be Equal As Integers    ${s}[unsynced]    1
+    Should Be True              ${s}[max_err_us] <= 100    worst pulse timing error ${s}[max_err_us] us

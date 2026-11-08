@@ -125,10 +125,10 @@ static int cmd_can(const struct shell *sh, size_t argc, char **argv)
 
 	canlink_get_stats(&s);
 	shell_print(sh,
-		    "can up=%s state=%d tx_ok=%u tx_err=%u tx_overflow=%u bus_off=%u rx_cmd=%u "
-		    "rx_drop=%u rx_sync=%u",
+		    "can up=%s state=%d tx_ok=%u tx_err=%u tx_overflow=%u tx_retry=%u bus_off=%u "
+		    "rx_cmd=%u rx_drop=%u rx_sync=%u",
 		    s.up ? "yes" : "no", (int)s.state, s.tx_ok, s.tx_errors, s.tx_overflows,
-		    s.bus_off_count, s.rx_cmds, s.rx_dropped, s.rx_syncs);
+		    s.tx_retries, s.bus_off_count, s.rx_cmds, s.rx_dropped, s.rx_syncs);
 	return 0;
 }
 
@@ -221,11 +221,11 @@ static int cmd_strobe(const struct shell *sh, size_t argc, char **argv)
 
 	strobe_get_stats(&s);
 	shell_print(sh,
-		    "strobe slots=%u slot=%u synced=%s pulses=%u aim=%u shots=%u late=%u last_kind=%u "
-		    "last_k=%lld last_lane=%lld last_err_us=%lld max_err_us=%lld shot_k=%lld "
-		    "shot_fired_k=%lld shot_lane=%lld",
+		    "strobe slots=%u slot=%u synced=%s pulses=%u aim=%u shots=%u late=%u "
+		    "unsynced=%u last_kind=%u last_k=%lld last_lane=%lld last_err_us=%lld "
+		    "max_err_us=%lld shot_k=%lld shot_fired_k=%lld shot_lane=%lld",
 		    s.n_slots, s.slot, s.synced ? "yes" : "no", s.pulses, s.aim, s.shots, s.late,
-		    s.last_kind, (long long)s.last_k, (long long)s.last_lane_us,
+		    s.unsynced, s.last_kind, (long long)s.last_k, (long long)s.last_lane_us,
 		    (long long)s.last_err_us, (long long)s.max_err_us, (long long)s.last_shot_k,
 		    (long long)s.last_shot_fired_k, (long long)s.last_shot_lane_us);
 	return 0;

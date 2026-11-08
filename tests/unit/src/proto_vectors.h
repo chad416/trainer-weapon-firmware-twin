@@ -13,8 +13,8 @@ static const uint8_t VEC_SHOT_EVENT[8] = {0x34, 0x12, 0xD4, 0xC3, 0xB2, 0xA1, 0x
 /* SHOT_DETAIL_N1 (ID 0x181): {"shot_no": 7, "takeup_ms": 120, "squeeze_ms": 44, "jerk": 30, "muzzle_rate": 12, "cant": -5, "flinch": 1.5} */
 static const uint8_t VEC_SHOT_DETAIL[8] = {0x07, 0x00, 0x1E, 0x0B, 0x1E, 0x0C, 0xFB, 0x0F};
 
-/* STATUS_N1 (ID 0x201): {"state": 5, "sel": 2, "mag_in": 1, "chambered": 1, "stoppage": 0, "rounds": 28, "faults": 264, "tx_overflows": 3, "shots": 515} */
-static const uint8_t VEC_STATUS[8] = {0x05, 0x0E, 0x1C, 0x08, 0x01, 0x03, 0x03, 0x02};
+/* STATUS_N1 (ID 0x201): {"state": 5, "sel": 2, "mag_in": 1, "chambered": 1, "stoppage": 0, "rounds": 28, "faults": 264, "tx_overflows": 3, "tx_errors": 5, "shots": 515} */
+static const uint8_t VEC_STATUS[8] = {0x05, 0xAE, 0x1C, 0x08, 0x01, 0x03, 0x03, 0x02};
 
 /* EVENT_N1 (ID 0x281): {"type": 6, "t_us": 16909060, "value": 2500} */
 static const uint8_t VEC_EVENT[8] = {0x06, 0x00, 0x04, 0x03, 0x02, 0x01, 0xC4, 0x09};

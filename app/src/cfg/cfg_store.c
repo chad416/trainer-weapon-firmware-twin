@@ -280,3 +280,8 @@ void cfg_live_trigger(uint16_t *break_pm, uint16_t *reset_pm, uint32_t *generati
 	*reset_pm = (uint16_t)(packed & 0xFFFFU);
 	*generation = (uint32_t)atomic_get(&live_generation);
 }
+
+uint32_t cfg_live_trigger_generation(void)
+{
+	return (uint32_t)atomic_get(&live_generation);
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Live lane demo: two emulated weapons in Renode bridged to SocketCAN vcan0, the
-# lane console recording, and a scripted 60 s session. Produces the session CSV,
-# report plots, console screenshots and an MP4 in docs/.
+# lane console recording, and a scripted session (about 36 s). Produces the
+# session CSV, report plots, console screenshots and an MP4 in docs/.
 # Usage (inside WSL, as root for vcan): scripts/demo.sh
 set -euo pipefail
 # shellcheck disable=SC1091
@@ -23,7 +23,7 @@ cd "$REPO/tools/lane"
 python3 - <<EOF
 from renode_ctl import RenodeMonitor
 m = RenodeMonitor(port=$PORT)
-m.cmd('\$elf=@$WS/build/app/zephyr/zephyr.elf')
+m.cmd('\$elf=@$BUILD/zephyr/zephyr.elf')
 m.cmd('include @$REPO/sim/lane_live.resc', settle=3)
 m.close()
 EOF

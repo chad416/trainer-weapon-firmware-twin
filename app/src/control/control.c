@@ -8,6 +8,7 @@
 #include "cfg_store.h"
 #include "imu_task.h"
 #include "lane.h"
+#include "local_clock.h"
 #include "malfunction.h"
 #include "outputs.h"
 #include "strobe_task.h"
@@ -21,7 +22,7 @@ LOG_MODULE_REGISTER(control, LOG_LEVEL_INF);
 #define CONTROL_WAIT           K_MSEC(100) /* also the watchdog feed period */
 #define CONTROL_WDT_TIMEOUT_MS 1000U
 
-K_MSGQ_DEFINE(event_q, sizeof(struct weapon_event), CONFIG_TRAINER_EVENT_QUEUE_LEN, 4);
+K_MSGQ_DEFINE(event_q, sizeof(struct weapon_event), CONFIG_TRAINER_EVENT_QUEUE_LEN, 8);
 K_MUTEX_DEFINE(weapon_lock); /* guards weapon, malf and shots */
 K_THREAD_STACK_DEFINE(control_stack, CONTROL_STACK_SIZE);
 
@@ -52,7 +53,16 @@ static uint32_t next_random(void)
 
 int control_post(enum weapon_event_type type)
 {
-	struct weapon_event ev = {.type = type, .t_ms = k_uptime_get_32()};
+	return control_post_at(type, local_clock_us());
+}
+
+int control_post_at(enum weapon_event_type type, uint64_t t_local_us)
+{
+	struct weapon_event ev = {
+		.type = type,
+		.t_ms = k_uptime_get_32(),
+		.t_local_us = t_local_us,
+	};
 
 	if (k_msgq_put(&event_q, &ev, K_NO_WAIT) != 0) {
 		atomic_inc(&dropped);
@@ -204,9 +214,13 @@ static void apply_actions(uint32_t act, const struct control_snapshot *s,
 		}
 		lane_report_shot((uint16_t)s->shots, t_us, (uint8_t)s->sel, s->rounds.chambered,
 				 rounds_total(&s->rounds));
-		/* t_local: exact shot time in us; log timestamps only have ms resolution. */
-		LOG_INF("SHOT n=%u rounds=%u sel=%s t_local=%u", s->shots, rounds_total(&s->rounds),
-			weapon_selector_name(s->sel), (uint32_t)local_us);
+		/*
+		 * t_local: the shot time in us that SHOT_EVENT carries (log timestamps only
+		 * have ms resolution); path_us: from that sample to this point.
+		 */
+		LOG_INF("SHOT n=%u rounds=%u sel=%s t_local=%u path_us=%u", s->shots,
+			rounds_total(&s->rounds), weapon_selector_name(s->sel), (uint32_t)local_us,
+			(uint32_t)(local_clock_us() - local_us));
 
 		struct proto_shot_detail d;
 
@@ -314,7 +328,12 @@ static void control_main(void *p1, void *p2, void *p3)
 				  malf_clear_late(&malf, weapon.last_clear_ms);
 		k_mutex_unlock(&weapon_lock);
 
-		uint64_t local_us = lane_local_us();
+		/*
+		 * Event time, not handling time: a shot is stamped with the trigger sample
+		 * that crossed the break point (or the cadence tick), so its timestamp does
+		 * not depend on queueing and scheduling in between.
+		 */
+		uint64_t local_us = ev.t_local_us;
 
 		control_get_snapshot(&snap);
 		apply_actions(act, &snap, sel_before, local_us, clear_late);

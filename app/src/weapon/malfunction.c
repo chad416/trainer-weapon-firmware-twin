@@ -1,10 +1,17 @@
 #include "malfunction.h"
 
 #include <string.h>
+#include <zephyr/toolchain.h>
 
+#include "proto.h"
+
+/* Result codes go straight into CMD_ACK.status. */
 #define ST_OK        0U
 #define ST_BAD_KEY   2U
 #define ST_BAD_VALUE 3U
+BUILD_ASSERT(ST_OK == PROTO_ST_OK);
+BUILD_ASSERT(ST_BAD_KEY == PROTO_ST_BAD_KEY);
+BUILD_ASSERT(ST_BAD_VALUE == PROTO_ST_BAD_VALUE);
 
 void malf_init(struct malf *m)
 {

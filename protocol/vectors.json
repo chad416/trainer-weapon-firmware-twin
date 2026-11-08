@@ -10,7 +10,7 @@
                  "cant": -5, "flinch": 1.5}},
     {"name": "STATUS", "message": "STATUS_N1",
      "signals": {"state": 5, "sel": 2, "mag_in": 1, "chambered": 1, "stoppage": 0, "rounds": 28,
-                 "faults": 264, "tx_overflows": 3, "shots": 515}},
+                 "faults": 264, "tx_overflows": 3, "tx_errors": 5, "shots": 515}},
     {"name": "EVENT", "message": "EVENT_N1",
      "signals": {"type": 6, "t_us": 16909060, "value": 2500}},
     {"name": "BIT_RESULT", "message": "BIT_RESULT_N1",

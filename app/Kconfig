@@ -31,10 +31,11 @@ config TRAINER_EVENT_QUEUE_LEN
 
 config TRAINER_DEBUG_CMDS
 	bool "Debug shell commands (stall threads, corrupt config)"
-	default y
 	help
 	  Commands that deliberately break things to test the watchdog and
-	  the config fallback. Disable for field builds.
+	  the config fallback (trainer stall, trainer cfg corrupt). Off in the
+	  default image; the simulation and test image enables them with
+	  app/debug.conf (scripts/build.sh).
 
 endmenu
 

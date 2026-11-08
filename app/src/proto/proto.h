@@ -52,6 +52,8 @@ struct proto_shot_event {
 	uint8_t rounds_left;
 };
 
+#define PROTO_TX_ERRORS_MAX 7U /* STATUS.tx_errors is 3 bits wide */
+
 struct proto_status {
 	uint8_t state; /* weapon_state_id */
 	uint8_t sel;   /* weapon_selector */
@@ -61,6 +63,7 @@ struct proto_status {
 	uint8_t rounds;
 	uint16_t faults; /* BIT fault mask */
 	uint8_t tx_overflows; /* saturating */
+	uint8_t tx_errors;    /* frames dropped after failed sends; saturating, 3 bits */
 	uint16_t shots;
 };
 
