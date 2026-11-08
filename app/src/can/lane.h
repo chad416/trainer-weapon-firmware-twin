@@ -30,6 +30,11 @@ uint32_t lane_time_of(uint64_t local_us);
 /* Lane time now. */
 uint32_t lane_now_us(void);
 
+/* 64-bit (unwrapped) lane time for a local time, its inverse, and whether SYNC has locked (v0.6). */
+int64_t lane_time64_of(uint64_t local_us);
+uint64_t lane_local_of(int64_t lane_us);
+bool lane_synced(void);
+
 struct lane_sync_info {
 	bool synced;
 	int64_t offset_us;

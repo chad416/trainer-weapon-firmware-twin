@@ -22,6 +22,13 @@ Wait For Event Type
     END
     Fail    no EVENT of type ${type} in ${max_frames} frames
 
+Strobe Stats
+    [Documentation]    The firmware's "trainer strobe" line as a dictionary of integers (v0.6).
+    Shell                       trainer strobe
+    ${l}=                       Wait For Line On Uart    strobe slots=
+    ${d}=                       Evaluate    {k: (1 if v == "yes" else 0 if v == "no" else int(v)) for k, v in re.findall(r"(\\w+)=(-?\\w+)", $l["Line"])}    modules=re
+    RETURN    ${d}
+
 On Machine
     [Documentation]    Run a monitor command on one machine of the lane.
     [Arguments]    ${machine}    ${command}
@@ -86,7 +93,7 @@ IT01 Boot Is Safe And Quiet
     Should Be Equal As Integers    ${bit}[2]    0    not critical
     ${info}=                    Wait For Frame    ${FN_INFO}
     Should Be Equal As Integers    ${info}[0]    0    version major
-    Should Be Equal As Integers    ${info}[1]    5    version minor
+    Should Be Equal As Integers    ${info}[1]    6    version minor
     ${boots}=                   U32    ${info}    4
     Should Be Equal As Integers    ${boots}    1
     ${status}=                  Wait For Frame    ${FN_STATUS}
@@ -96,7 +103,7 @@ IT01 Boot Is Safe And Quiet
     Assert LED State            true     0    testerId=${blue}     pauseEmulation=true
     Assert LED State            false    0    testerId=${red}      pauseEmulation=true
     Shell                       trainer version
-    Wait For Line On Uart       trainer_fw 0.5.0
+    Wait For Line On Uart       trainer_fw 0.6.0
 
 IT01b Trigger In Safe Does Nothing
     [Documentation]    F03: a full squeeze in SAFE fires nothing, even with a round chambered.
@@ -552,3 +559,76 @@ IT15 Status LED Patterns
     Press                       sw3
     Wait For Line On Uart       STATE READY
     Assert And Hold LED State   true    0.1    0.5    testerId=${green}    pauseEmulation=true
+
+IT17 Camera Mode Strobes In The Weapon's Slot
+    [Documentation]    F17 (v0.6): with STROBE_SLOTS = 2 and STROBE_SLOT = 0 set over CAN, the
+    ...                emitter flashes 0.5 ms in the middle of every other camera exposure, on the
+    ...                node's own lane time: about 10 pulses in 0.2 s, each one starting 4.75 ms
+    ...                after a 20 ms lane-time boundary, within 250 us (then the 0.5 ms pulse is
+    ...                still fully inside the 1 ms exposure). Direct mode (the default, IT10 and
+    ...                IT14) is unchanged.
+    [Tags]    sync    strobe
+    Boot Trainer
+    ${vt}=                      Virtual Time Us
+    Send Sync                   ${{${vt} + 5000000}}
+    Advance                     0.01
+    Cmd Should Succeed          2    14    0
+    Cmd Should Succeed          2    13    2
+    ${emitter}=                 Create LED Tester    ${EMITTER}
+    Assert LED State            true     0.025    testerId=${emitter}    pauseEmulation=true
+    Assert LED State            false    0.001    testerId=${emitter}    pauseEmulation=true
+    Advance                     0.2
+    ${s}=                       Strobe Stats
+    Log To Console              LOG: strobe ${s}
+    Should Be True              ${s}[pulses] >= 9    ${s}
+    Should Be True              ${s}[aim] == ${s}[pulses]
+    Should Be True              ${s}[last_k] % 2 == 0    slot 0: even exposures
+    ${phase}=                   Evaluate    ${s}[last_lane] % 20000
+    Should Be True              4500 <= ${phase} <= 5000    pulse start ${phase} us into the 20 ms cycle
+    Should Be True              ${s}[max_err_us] <= 250    worst pulse timing error ${s}[max_err_us] us
+
+IT17b Shot Pulse Goes Into The Shot Frame
+    [Documentation]    F17: in camera mode the recoil valve fires at the break (T02 unchanged),
+    ...                and the emitter's shot pulse goes into the first exposure whose pulse starts
+    ...                at least 2 ms after the break time the SHOT_EVENT carries (the tracker's rule).
+    [Tags]    sync    strobe
+    Boot Trainer
+    ${vt}=                      Virtual Time Us
+    Send Sync                   ${{${vt} + 5000000}}
+    Advance                     0.01
+    Cmd Should Succeed          2    14    1
+    Cmd Should Succeed          2    13    2
+    Load Semi
+    ${valve}=                   Create LED Tester    ${VALVE}
+    Set Trigger                 100
+    Assert LED State            true     0.1      testerId=${valve}      pauseEmulation=true
+    ${f}=                       Wait For Frame    ${FN_SHOT_EVENT}
+    ${t}=                       U32    ${f}    2
+    Advance                     0.05
+    ${s}=                       Strobe Stats
+    Log To Console              LOG: break at lane ${t} us, strobe ${s}
+    ${k}=                       Evaluate    -((-(${t} + 2000 - 4750)) // 10000)
+    Should Be Equal As Integers    ${s}[shot_k]    ${k}
+    Should Be Equal As Integers    ${s}[shot_fired_k]    ${k}
+    Should Be Equal As Integers    ${s}[shots]    1
+    Should Be Equal As Integers    ${s}[late]    0
+    ${start}=                   Evaluate    ${k} * 10000 + 4750
+    Should Be True              abs(${s}[shot_lane] - ${start}) <= 250    shot pulse at ${s}[shot_lane], planned ${start}
+    Should Be True              ${s}[shot_lane] - ${t} >= 2000    at least 2 ms after the break
+
+IT17c Strobe Settings Are Checked
+    [Documentation]    F13/F17: one slot is refused (the tracker needs a dark frame between a
+    ...                weapon's flashes), so is a slot outside the slot count; both read back.
+    [Tags]    strobe
+    Boot Trainer
+    ${st}    ${v}=              Send Cmd    2    13    1
+    Should Be Equal As Integers    ${st}    3
+    Cmd Should Succeed          2    13    3
+    ${st}    ${v}=              Send Cmd    2    14    3
+    Should Be Equal As Integers    ${st}    3
+    Cmd Should Succeed          2    14    2
+    ${v}=                       Cmd Should Succeed    1    13
+    Should Be Equal As Integers    ${v}    3
+    ${v}=                       Cmd Should Succeed    1    14
+    Should Be Equal As Integers    ${v}    2
+    Cmd Should Succeed          2    13    0

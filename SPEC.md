@@ -1,6 +1,6 @@
 # S1 — Trainer-Weapon Firmware on a Digital Twin
 
-Specification, revision A (6 Nov 2026)
+Specification, revision B (8 Nov 2026). Revision B adds F17 (firmware v0.6): emitter strobing on lane time for the lane camera of the aim-point tracker (S3).
 
 Production-style embedded C firmware for an instrumented training weapon. It runs on Zephyr RTOS on an emulated STM32H753 board (Antmicro's STM32H7 Renode Reference Platform) inside the Renode simulator, with automated integration tests and CI. No physical hardware is needed. The same binary is built for a real board, so it can be flashed later without changes.
 
@@ -96,6 +96,7 @@ Put pin and peripheral choices in an **app devicetree overlay** with aliases (`t
 | F14 | BIT at boot and on request: IMU ID and self-test, trigger ADC within the calibrated rest band, config CRC, CAN controller state, flash read/write. Send BIT_RESULT. Critical faults block fire. |
 | F15 | Shot log: ring buffer of the last 1000 shot records. Dumped through the shell, and through segmented CAN transfer in v2. |
 | F16 | Status LED: SAFE = blue, READY = green, STOPPAGE = amber blink, FAULT = red, EMPTY = slow green blink. |
+| F17 | Camera mode (v0.6), for the lane camera of the aim-point tracker (S3). With STROBE_SLOTS = 2–4 and STROBE_SLOT set over CAN (session keys 13, 14), the emitter flashes 0.5 ms in the middle of the camera's exposures (exposure k: lane time k × 10 ms + 4.5 ms, 1 ms long), on the node's lane time (F12): an aim pulse in each exposure with k mod STROBE_SLOTS = STROBE_SLOT, and at a trigger break the shot pulse in the first exposure whose pulse starts at least 2 ms after the break, replacing that frame's aim pulse. The recoil valve still fires at the break. One slot is refused: the tracker needs a dark frame between a weapon's flashes. STROBE_SLOTS = 0 (the default) is direct mode: the emitter pulses at the break as in v0.5. |
 
 ### 4.2 Robustness
 | ID | Requirement |
@@ -109,7 +110,7 @@ Put pin and peripheral choices in an **app devicetree overlay** with aliases (`t
 | ID | Requirement |
 |---|---|
 | T01 | Trigger break detected within one sample period (≤ 1 ms after the ADC crosses the threshold). |
-| T02 | Emitter and valve outputs set ≤ 200 µs after detection. |
+| T02 | Emitter and valve outputs set ≤ 200 µs after detection. In camera mode (F17) this holds for the valve; the emitter flashes in the shot frame instead. |
 | T03 | SHOT_EVENT on the bus ≤ 2 ms after break. |
 | T04 | AUTO cadence within ±2 % of the set rpm. |
 | T05 | Two weapons at 900 rpm on one bus: no lost frames over 10 000 shots. |
@@ -254,6 +255,7 @@ Collect gcov coverage on native_sim and publish the percentage. Target ≥ 85 % 
 | IT13 bus-off | R02 | If the CAN model supports error injection, force bus-off and check recovery. Otherwise document it as untested in simulation. |
 | IT14 shot pulses | F05, F13 | One shot pulses the emitter gate (2 ms) and the valve gate (20 ms); a valve width set over CAN applies to the next shot (added in week 1–2) |
 | IT15 status LED | F16 | SAFE blue, EMPTY slow green blink, READY steady green (added in week 1) |
+| IT17 camera mode | F17, F13 | v0.6. IT17: two slots, slot 0: about 10 aim pulses in 0.2 s, each starting 4.75 ms after a 20 ms lane-time boundary, within 250 µs (the 0.5 ms pulse then stays inside the 1 ms exposure). IT17b: the valve fires at the break, and the shot pulse goes into the exposure that the tracker's rule gives for the SHOT_EVENT's break time. IT17c: one slot, or a slot outside the count, is refused. |
 
 ### 9.3 CI (GitHub Actions, ubuntu-latest)
 1. Fetch Zephyr through `west` and cache it.
@@ -353,6 +355,13 @@ Renode runs instructions functionally, not cycle-accurately. The timing tests (I
 - **Video:** the scripted session is 36 s, not the planned 60 s. It is the real length of the session, not padded.
 - **F15 closed in v0.5.0:** the traceability review found the on-device shot log missing. It is now a 1000-record RAM ring buffer (16-byte records, 16 KB), filled from the same data as SHOT_EVENT and SHOT_DETAIL and dumped with `trainer log [n|clear]`. Covered by unit `shotlog` and IT16. Segmented CAN download remains v2.
 - **IT10b test bug:** IT10b took the shot's local time from the log timestamp, which has only ms resolution here (the µs field is always `,000`). It passed while shots landed on ms boundaries and failed with 900 µs error once they didn't. The SHOT log line now prints the exact `t_local` in µs, and IT10b checks lane time = local + offset to within 2 µs. It measures 0 µs.
+
+
+### 13.5 v0.6 findings (emitter strobing for the lane camera, 8 Nov 2026)
+- **Why:** the aim-point tracker (S3) films the screen at 100 fps with 1 ms exposures. A 2 ms emitter pulse at a random time lands fully inside an exposure almost never, so the weapon has to put its pulses into the exposures (F17).
+- **Margin from the break:** the tracker's first draft had the shot pulse 0.5 ms after the break. The firmware only sees a break up to 1 ms after it happens (1 kHz sampling) and fires within 1.5 ms (T01), so a 0.5 ms margin would have missed its own frame. It is 2 ms on both sides now. Optical latency is at most one frame more; the valve is unchanged.
+- **Timing:** pulses are planned on lane time and slept to with the inverse of the SYNC fit (`ts_local_time`). Kernel timeouts round up to the 100 µs tick, so the thread aims 50 µs early. In Renode the pulses fired 68 µs after their planned start, and a shot pulse that had to re-plan when the break arrived fired 168 µs late (one more tick). Both are inside the ±250 µs that the pulse has within the exposure, which is the test limit.
+- **Watchdog:** the strobe thread is on the task watchdog like the others (6 channels now).
 
 ---
 

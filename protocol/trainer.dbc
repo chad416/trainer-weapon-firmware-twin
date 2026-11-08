@@ -1,4 +1,4 @@
-VERSION "trainer 0.4"
+VERSION "trainer 0.6"
 
 NS_ :
 
@@ -69,7 +69,7 @@ BO_ 1153 INFO_N1: 8 WEAPON
 CM_ "11-bit ID = (function << 7) | node_id. Messages are defined for node 1; node N uses the same layout at ID + (N - 1).";
 CM_ BO_ 897 "ISO-TP single frame. opcode: 1 GET, 2 SET (saves), 3 RUN_BIT, 4 INJECT_STOPPAGE, 5 REBOOT, 6 RESET_DEFAULTS.";
 CM_ BO_ 1025 "ISO-TP single frame. status: 0 OK, 1 BAD_OPCODE, 2 BAD_KEY, 3 BAD_VALUE, 4 SAVE_FAILED, 5 READ_ONLY.";
-CM_ SG_ 897 key "1 NODE_ID, 2 CAPACITY, 3 AUTO_RPM, 4 EMITTER_US, 5 VALVE_MS, 6 BREAK_PM, 7 RESET_PM, 8 BOOT_COUNT (read-only) are saved to flash. Session only: 9 STOPPAGE_MODE (0 off, 1 at round N, 2 random), 10 STOPPAGE_ROUND, 11 STOPPAGE_PROB_PM, 12 CLEAR_WINDOW_MS (0 = no limit).";
+CM_ SG_ 897 key "1 NODE_ID, 2 CAPACITY, 3 AUTO_RPM, 4 EMITTER_US, 5 VALVE_MS, 6 BREAK_PM, 7 RESET_PM, 8 BOOT_COUNT (read-only) are saved to flash. Session only: 9 STOPPAGE_MODE (0 off, 1 at round N, 2 random), 10 STOPPAGE_ROUND, 11 STOPPAGE_PROB_PM, 12 CLEAR_WINDOW_MS (0 = no limit), 13 STROBE_SLOTS (0 = direct mode, 2-4 = camera mode, v0.6), 14 STROBE_SLOT (0..STROBE_SLOTS-1).";
 CM_ SG_ 641 type "1 DRY_FIRE, 2 MAG_IN, 3 MAG_OUT, 4 RACK, 5 STOPPAGE_START, 6 STOPPAGE_CLEARED (value = ms), 7 SELECTOR, 8 TAP, 9 STATE, 10 CLEAR_LATE (value = ms).";
 CM_ BO_ 128 "ISO-TP single frame from the lane, every 10 ms. Nodes timestamp it on reception and fit lane time = f(local time).";
 CM_ BO_ 385 "Sent right after SHOT_EVENT. Trigger metrics of the last break (take-up and squeeze in 4 ms steps, up to 1020 ms); IMU metrics over the 300 ms (rate) and 50 ms (flinch) before the shot. Values saturate.";

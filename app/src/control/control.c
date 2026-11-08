@@ -10,6 +10,7 @@
 #include "lane.h"
 #include "malfunction.h"
 #include "outputs.h"
+#include "strobe_task.h"
 #include "trigger_task.h"
 #include "wdt.h"
 
@@ -194,7 +195,13 @@ static void apply_actions(uint32_t act, const struct control_snapshot *s,
 	uint32_t t_us = lane_time_of(local_us);
 
 	if (act & WACT_FIRE) {
-		outputs_shot();
+		if (strobe_active()) {
+			/* Camera mode (F17): recoil now, the emitter in the shot frame. */
+			outputs_valve();
+			strobe_shot(lane_time64_of(local_us));
+		} else {
+			outputs_shot();
+		}
 		lane_report_shot((uint16_t)s->shots, t_us, (uint8_t)s->sel, s->rounds.chambered,
 				 rounds_total(&s->rounds));
 		/* t_local: exact shot time in us; log timestamps only have ms resolution. */

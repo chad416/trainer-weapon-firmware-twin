@@ -10,6 +10,7 @@
 #include "control.h"
 #include "imu_task.h"
 #include "lane.h"
+#include "strobe_task.h"
 #include "trigger_task.h"
 #include "wdt.h"
 
@@ -211,6 +212,25 @@ static int cmd_sync(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_strobe(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	struct strobe_stats s;
+
+	strobe_get_stats(&s);
+	shell_print(sh,
+		    "strobe slots=%u slot=%u synced=%s pulses=%u aim=%u shots=%u late=%u last_kind=%u "
+		    "last_k=%lld last_lane=%lld last_err_us=%lld max_err_us=%lld shot_k=%lld "
+		    "shot_fired_k=%lld shot_lane=%lld",
+		    s.n_slots, s.slot, s.synced ? "yes" : "no", s.pulses, s.aim, s.shots, s.late,
+		    s.last_kind, (long long)s.last_k, (long long)s.last_lane_us,
+		    (long long)s.last_err_us, (long long)s.max_err_us, (long long)s.last_shot_k,
+		    (long long)s.last_shot_fired_k, (long long)s.last_shot_lane_us);
+	return 0;
+}
+
 #if defined(CONFIG_TRAINER_DEBUG_CMDS)
 static int cmd_stall(const struct shell *sh, size_t argc, char **argv)
 {
@@ -247,6 +267,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(trainer_cmds,
 	SHELL_CMD_ARG(log, NULL, "Shot log: last n shots (default 10), or 'clear'", cmd_log, 1, 1),
 	SHELL_CMD(imu, NULL, "Latest IMU sample and current metrics", cmd_imu),
 	SHELL_CMD(sync, NULL, "Lane time synchronisation", cmd_sync),
+	SHELL_CMD(strobe, NULL, "Emitter strobing for the lane camera (v0.6)", cmd_strobe),
 #if defined(CONFIG_TRAINER_DEBUG_CMDS)
 	SHELL_CMD_ARG(stall, NULL, "Debug: stall <control|trigger> to test the watchdog",
 		      cmd_stall, 2, 0),

@@ -13,6 +13,7 @@ target_include_directories(app PRIVATE
 	${APP_SRC}/cfg
 	${APP_SRC}/imu
 	${APP_SRC}/timesync
+	${APP_SRC}/strobe
 )
 
 target_sources(app PRIVATE
@@ -25,6 +26,7 @@ target_sources(app PRIVATE
 	src/test_malfunction.c
 	src/test_timesync.c
 	src/test_shotlog.c
+	src/test_strobe.c
 	${APP_SRC}/trigger/trigger_proc.c
 	${APP_SRC}/weapon/rounds.c
 	${APP_SRC}/weapon/weapon_sm.c
@@ -34,4 +36,5 @@ target_sources(app PRIVATE
 	${APP_SRC}/cfg/cfg.c
 	${APP_SRC}/imu/imu_metrics.c
 	${APP_SRC}/timesync/timesync.c
+	${APP_SRC}/strobe/strobe.c
 )

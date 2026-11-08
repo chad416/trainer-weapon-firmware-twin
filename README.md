@@ -10,6 +10,7 @@ Zephyr RTOS firmware (C) for an instrumented training weapon. It runs on an emul
 - measures aim, cant and flinch with an IMU
 - simulates instructor-set stoppages
 - reports everything on a CAN lane bus whose protocol is defined in a DBC file
+- in camera mode (v0.6), times its emitter flashes to the exposures of the lane's hit-detection camera ([aim-point-tracker](https://github.com/chad416/aim-point-tracker))
 
 **Contents:**
 - [SPEC.md](SPEC.md): specification and findings
@@ -26,12 +27,12 @@ Zephyr RTOS firmware (C) for an instrumented training weapon. It runs on an emul
 
 ## Status
 
-All four weeks of the plan are done.
+All four weeks of the plan are done. v0.6.0 adds camera mode (F17) for the lane's hit-detection camera.
 
-**Tests** (firmware v0.5.0):
-- **Unit tests:** 76 of 76 pass (ztest on `native_sim`).
-- **Integration tests:** all 29 Robot Framework tests pass in Renode, in two consecutive runs.
-- **Stress test:** the full two-weapon run, 10,000 shots each at 900 rpm, passes on the same build (17 minutes).
+**Tests** (firmware v0.6.0):
+- **Unit tests:** 81 of 81 pass (ztest on `native_sim`).
+- **Integration tests:** all 32 Robot Framework tests pass in Renode, including the 3 camera-mode tests (IT17).
+- **Stress test:** the full two-weapon run, 10,000 shots each at 900 rpm, passed on v0.5.0 (17 minutes). It has not been re-run on v0.6.0; the 3-magazine version (IT09b) passed on v0.6.0.
 
 **Open:**
 - Some requirements are only partly covered: F01 per-unit calibration, F14 fault injection beyond the IMU, R02 bus-off, and T02 measured separately. [docs/traceability.md](docs/traceability.md) has the details.
@@ -55,6 +56,7 @@ All four weeks of the plan are done.
 | Self-test: IMU, ADC, outputs (critical); trigger at rest, config, CAN, flash, watchdog | F14 | IT01, IT12 |
 | Task watchdog on every thread, IWDG fallback | R01 | IT11, IT11b |
 | Status LED: SAFE blue, not loaded slow green blink, READY green, FAULT red | F16 | IT15, IT12 |
+| Camera mode (v0.6): 0.5 ms emitter flashes in the camera's exposures on lane time, in the weapon's slot; the shot flash in the first exposure ≥ 2 ms after the break; the valve still fires at once | F17 | unit `strobe`; IT17, IT17b, IT17c |
 | Fire-path timing (virtual time): emitter ≤ 1.5 ms after break, SHOT_EVENT ≤ 2 ms | T01–T03 | IT10 |
 | Two weapons at 900 rpm: complete in-order shot stream, no TX overflow | T05 | IT09a, IT09b (CI: 3 magazines; `STRESS_MAGS:100` = 10,000 shots each) |
 

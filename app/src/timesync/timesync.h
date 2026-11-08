@@ -43,6 +43,12 @@ void ts_add(struct timesync *ts, uint64_t local_us, uint32_t lane_us);
 /* Lane time for a local time. Before the first SYNC this is the local time. */
 uint32_t ts_lane_time(const struct timesync *ts, uint64_t local_us);
 
+/* The same, unwrapped to 64 bits (v0.6: strobe scheduling across the 32-bit wrap). */
+int64_t ts_lane_time64(const struct timesync *ts, uint64_t local_us);
+
+/* Local time at which the lane clock reads lane_us (unwrapped): the inverse of the fit. */
+uint64_t ts_local_time(const struct timesync *ts, int64_t lane_us);
+
 /* Current estimates, for diagnostics: offset at local_us and drift in ppm. */
 int64_t ts_offset_us(const struct timesync *ts, uint64_t local_us);
 double ts_drift_ppm(const struct timesync *ts);

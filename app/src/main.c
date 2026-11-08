@@ -5,7 +5,7 @@
  *  1. reset reason + task watchdog
  *  2. outputs forced inactive before anything that can fire runs (SPEC R04)
  *  3. configuration (node ID) before CAN, because CAN IDs depend on it
- *  4. CAN + lane service, weapon control, trigger sampling
+ *  4. CAN + lane service, weapon control, emitter strobe, trigger sampling
  *  5. BIT, then INFO, so the lane learns the node is up and healthy
  */
 #include <zephyr/app_version.h>
@@ -19,6 +19,7 @@
 #include "imu_task.h"
 #include "lane.h"
 #include "outputs.h"
+#include "strobe_task.h"
 #include "trigger_task.h"
 #include "wdt.h"
 
@@ -46,6 +47,7 @@ int main(void)
 	}
 
 	control_start();
+	strobe_start();
 
 	rc = trigger_task_start();
 	bit_note_adc(rc);

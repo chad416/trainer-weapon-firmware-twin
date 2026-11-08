@@ -31,12 +31,22 @@ static void valve_off(struct k_timer *t)
 K_TIMER_DEFINE(emitter_timer, emitter_off, NULL);
 K_TIMER_DEFINE(valve_timer, valve_off, NULL);
 
-void outputs_shot(void)
+void outputs_emitter_pulse(uint32_t us)
 {
 	(void)gpio_pin_set_dt(&emitter, 1);
+	k_timer_start(&emitter_timer, K_USEC(us), K_NO_WAIT);
+}
+
+void outputs_valve(void)
+{
 	(void)gpio_pin_set_dt(&valve, 1);
-	k_timer_start(&emitter_timer, K_USEC(cfg_live_emitter_us()), K_NO_WAIT);
 	k_timer_start(&valve_timer, K_MSEC(cfg_live_valve_ms()), K_NO_WAIT);
+}
+
+void outputs_shot(void)
+{
+	outputs_emitter_pulse(cfg_live_emitter_us());
+	outputs_valve();
 }
 
 /* ---- status LED -------------------------------------------------------------- */

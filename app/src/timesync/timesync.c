@@ -102,6 +102,26 @@ uint32_t ts_lane_time(const struct timesync *ts, uint64_t local_us)
 	return (uint32_t)(int64_t)(lane + 0.5);
 }
 
+int64_t ts_lane_time64(const struct timesync *ts, uint64_t local_us)
+{
+	if (!ts->synced) {
+		return (int64_t)local_us;
+	}
+	double lane = ts->ref_lane + (ts->slope * (double)(int64_t)(local_us - ts->ref_local));
+
+	return (int64_t)(lane + 0.5);
+}
+
+uint64_t ts_local_time(const struct timesync *ts, int64_t lane_us)
+{
+	if (!ts->synced) {
+		return (uint64_t)lane_us;
+	}
+	double dl = ((double)lane_us - ts->ref_lane) / ts->slope;
+
+	return ts->ref_local + (uint64_t)(int64_t)((dl >= 0.0) ? (dl + 0.5) : (dl - 0.5));
+}
+
 int64_t ts_offset_us(const struct timesync *ts, uint64_t local_us)
 {
 	if (!ts->synced) {

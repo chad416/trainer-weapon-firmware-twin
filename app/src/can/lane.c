@@ -10,6 +10,7 @@
 #include "canlink.h"
 #include "cfg_store.h"
 #include "control.h"
+#include "strobe_task.h"
 #include "timesync.h"
 #include "wdt.h"
 
@@ -50,6 +51,33 @@ uint32_t lane_time_of(uint64_t local_us)
 uint32_t lane_now_us(void)
 {
 	return lane_time_of(lane_local_us());
+}
+
+int64_t lane_time64_of(uint64_t local_us)
+{
+	k_spinlock_key_t key = k_spin_lock(&ts_lock);
+	int64_t t = ts_ready ? ts_lane_time64(&ts, local_us) : (int64_t)local_us;
+
+	k_spin_unlock(&ts_lock, key);
+	return t;
+}
+
+uint64_t lane_local_of(int64_t lane_us)
+{
+	k_spinlock_key_t key = k_spin_lock(&ts_lock);
+	uint64_t t = ts_ready ? ts_local_time(&ts, lane_us) : (uint64_t)lane_us;
+
+	k_spin_unlock(&ts_lock, key);
+	return t;
+}
+
+bool lane_synced(void)
+{
+	k_spinlock_key_t key = k_spin_lock(&ts_lock);
+	bool s = ts_ready && ts.synced;
+
+	k_spin_unlock(&ts_lock, key);
+	return s;
 }
 
 void lane_get_sync_info(struct lane_sync_info *out)
@@ -179,6 +207,8 @@ static void handle_cmd(const struct can_frame *f)
 	case PROTO_OP_GET:
 		if (c.key == KEY_BOOT_COUNT) {
 			a.value = cfg_store_boot_count();
+		} else if (strobe_is_key(c.key)) {
+			a.status = strobe_session_get(c.key, &a.value);
 		} else if (is_session_key(c.key)) {
 			a.status = control_session_get(c.key, &a.value);
 		} else {
@@ -188,6 +218,8 @@ static void handle_cmd(const struct can_frame *f)
 	case PROTO_OP_SET:
 		if (c.key == KEY_BOOT_COUNT) {
 			a.status = PROTO_ST_READ_ONLY;
+		} else if (strobe_is_key(c.key)) {
+			a.status = strobe_session_set(c.key, c.value);
 		} else if (is_session_key(c.key)) {
 			a.status = control_session_set(c.key, c.value);
 		} else {

@@ -10,6 +10,10 @@ int outputs_init(void);
 /* Start one shot: emitter and valve gates high, each turned off by its own timer. */
 void outputs_shot(void);
 
+/* The two halves, for camera mode (v0.6): the valve at the break, the emitter when strobed. */
+void outputs_valve(void);
+void outputs_emitter_pulse(uint32_t us);
+
 /* Show the weapon state on the status LED (see SPEC F16). */
 void outputs_show_state(enum weapon_state_id state);
 

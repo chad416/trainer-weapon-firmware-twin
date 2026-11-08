@@ -15,6 +15,7 @@ target_include_directories(app PRIVATE
 	src/sys
 	src/imu
 	src/timesync
+	src/strobe
 )
 
 target_sources(app PRIVATE
@@ -38,5 +39,7 @@ target_sources(app PRIVATE
 	src/imu/imu_metrics.c
 	src/imu/imu_task.c
 	src/timesync/timesync.c
+	src/strobe/strobe.c
+	src/strobe/strobe_task.c
 	src/shell/shell_cmds.c
 )
